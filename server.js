@@ -13,13 +13,11 @@ const MAX_FOOD = 600;
 app.use(express.static(__dirname + '/public'));
 
 let players = {};
-// Separate food grids for each gamemode room
 let roomFoods = {
     normal: [],
     zombie: []
 };
 
-// Zombie Room State
 let zombieTimer = 120;
 let zombieInterval = null;
 let zombieGameInProgress = false;
@@ -34,7 +32,6 @@ function spawnFood(room) {
     });
 }
 
-// Pre-populate both rooms
 for (let i = 0; i < MAX_FOOD; i++) {
     spawnFood("normal");
     spawnFood("zombie");
@@ -95,7 +92,6 @@ function endZombieMatch() {
 
     io.to("zombie").emit('zombieModeEnded');
     
-    // Reset room players back to human state for the next round lobby
     activeZombiePlayers.forEach(p => {
         p.isZombie = false;
         p.color = p.baseColor;
@@ -126,9 +122,18 @@ io.on('connection', (socket) => {
         
         socket.emit('init', { worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, currentMode: selectedRoom });
 
-        // Auto start zombie countdown if players join the zombie lobby room and no match is active
         if (selectedRoom === "zombie" && !zombieGameInProgress) {
             startZombieMatch();
+        }
+    });
+
+    // CHAT MESSAGE PIPELINE LAYER
+    socket.on('sendChat', (msg) => {
+        let p = players[socket.id];
+        if (p && msg.trim().length > 0) {
+            // Trim down massive messages to prevent spam layout breaks
+            let cleanMsg = msg.substring(0, 60);
+            io.to(p.room).emit('receiveChat', { name: p.name, text: cleanMsg, isZombie: p.isZombie });
         }
     });
 
@@ -154,7 +159,6 @@ io.on('connection', (socket) => {
     });
 });
 
-// Central Physics Engine Loop Split across Rooms
 setInterval(() => {
     let deadPlayers = [];
 
@@ -178,7 +182,6 @@ setInterval(() => {
         p.x = Math.max(p.radius, Math.min(WORLD_WIDTH - p.radius, p.x));
         p.y = Math.max(p.radius, Math.min(WORLD_HEIGHT - p.radius, p.y));
 
-        // Food Processing Loop per Room
         let foods = roomFoods[currentRoom] || [];
         for (let i = foods.length - 1; i >= 0; i--) {
             if (Math.hypot(p.x - foods[i].x, p.y - foods[i].y) < p.radius) {
@@ -191,12 +194,11 @@ setInterval(() => {
             }
         }
 
-        // Player Collision Engine
         Object.keys(players).forEach(otherId => {
             if (id === otherId || deadPlayers.includes(otherId) || deadPlayers.includes(id)) return;
             
             let other = players[otherId];
-            if (!other || other.room !== currentRoom) return; // Must be in same room
+            if (!other || other.room !== currentRoom) return; 
 
             let pDist = Math.hypot(p.x - other.x, p.y - other.y);
 
@@ -205,7 +207,6 @@ setInterval(() => {
                     if (p.isZombie && !other.isZombie) {
                         other.isZombie = true;
                         other.color = "#2ecc71";
-                        // Send trigger to display visual +1 indicator on the zombie screen who infected them
                         io.to(id).emit('killIndicator', { x: other.x, y: other.y, text: "INFECTED!" });
                     }
                 }
@@ -227,7 +228,6 @@ setInterval(() => {
 
     deadPlayers.forEach(id => { delete players[id]; });
 
-    // Broadcast room updates separately to avoid cross-contamination
     ["normal", "zombie"].forEach(roomName => {
         let roomPlayers = {};
         Object.keys(players).forEach(id => {
@@ -244,4 +244,4 @@ setInterval(() => {
 
 }, 1000 / 60);
 
-http.listen(PORT, () => console.log(`Game Server actively running on port ${PORT}`));
+http.listen(PORT, '0.0.0.0', () => console.log(`Game Server actively running on port ${PORT}`));

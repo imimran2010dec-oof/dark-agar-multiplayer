@@ -60,7 +60,6 @@ button:hover{ transform:scale(1.02); filter: brightness(1.1); }
 .zombie-btn { background: #2ecc71; color: #000; }
 .shop-btn { background: #e67e22; }
 
-/* In-game HUD panels */
 #ui{
     position:fixed;
     top:15px;
@@ -69,16 +68,16 @@ button:hover{ transform:scale(1.02); filter: brightness(1.1); }
     background: rgba(15,15,15,0.85);
     color:white;
     padding:15px;
-    border-radius:16px;
+    border-radius:166px;
     border: 1px solid rgba(255,255,255,0.08);
     min-width:220px;
     backdrop-filter:blur(10px);
+    border-radius: 16px;
 }
 .stat{ margin-bottom:8px; color:#ddd; }
 #timerDisplay { display: none; color: #e74c3c; font-weight: bold; font-size: 18px; margin-top: 5px; }
 #leaderboard{ margin-top:12px; padding-top:10px; border-top: 1px solid rgba(255,255,255,0.08); color:#bbb; }
 
-/* Clean floating Exit button layout */
 #exitBtn {
     position: fixed;
     top: 15px;
@@ -88,6 +87,51 @@ button:hover{ transform:scale(1.02); filter: brightness(1.1); }
     padding: 10px 20px;
     background: #e74c3c;
     display: none; 
+}
+
+/* ===== NEW CHAT BOX INTERFACE SYSTEMS ===== */
+#chatWrapper {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    width: 320px;
+    z-index: 1005;
+    display: none; /* revealed upon joining game rooms */
+    pointer-events: none;
+}
+#chatLog {
+    width: 100%;
+    max-height: 160px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    text-shadow: 1px 1px 2px rgba(0,0,0,1);
+}
+.chat-line {
+    background: rgba(0,0,0,0.4);
+    padding: 4px 8px;
+    border-radius: 6px;
+    color: #fff;
+    width: fit-content;
+    max-width: 100%;
+    word-break: break-all;
+    animation: fadeIn 0.2s ease-out;
+}
+.chat-line.zombie-msg { color: #2ecc71; font-weight: bold; }
+#chatInput {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: rgba(15,15,15,0.9);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #fff;
+    font-size: 14px;
+    outline: none;
+    pointer-events: auto;
+    display: none; /* hidden until enter key hits focus */
 }
 
 #minimap {
@@ -104,6 +148,8 @@ canvas#gameCanvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100v
 .shop-circle { width: 30px; height: 30px; border-radius: 50%; }
 .price-tag { font-size: 11px; color: #f1c40f; font-weight: bold; }
 .currency-display { font-size: 16px; color: #f1c40f; margin-bottom: 15px; font-weight: bold; }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 </head>
 <body>
@@ -138,6 +184,11 @@ canvas#gameCanvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100v
     <div id="leaderboard"><b>Leaderboard</b></div>
 </div>
 
+<div id="chatWrapper">
+    <div id="chatLog"></div>
+    <input id="chatInput" placeholder="Press Enter to say something..." maxlength="60" />
+</div>
+
 <canvas id="gameCanvas"></canvas>
 <canvas id="minimap" width="200" height="200" style="display:none;"></canvas>
 
@@ -166,12 +217,17 @@ const timerDisplay = document.getElementById("timerDisplay");
 const secondsSpan = document.getElementById("seconds");
 const uiPanel = document.getElementById("ui");
 
+// Chat UI Hooks
+const chatWrapper = document.getElementById("chatWrapper");
+const chatLog = document.getElementById("chatLog");
+const chatInput = document.getElementById("chatInput");
+
 let coins = parseInt(localStorage.getItem("agar_coins")) || 0;
 let unlockedSkins = JSON.parse(localStorage.getItem("agar_skins")) || ["#3498db"]; 
 let selectedSkin = localStorage.getItem("agar_selected_skin") || "#3498db";
 
-// Memory storage for small local floating notifications
 let indicators = [];
+let isTyping = false;
 
 const availableSkins = [
     { color: "#3498db", price: 0, name: "Default" },
@@ -192,15 +248,28 @@ socket.on('earnCoins', (amount) => {
     updateCoinDisplays();
 });
 
-// Captures a text signal and pins it onto the viewport vector grid map
 socket.on('killIndicator', (data) => {
-    indicators.push({
-        x: data.x,
-        y: data.y,
-        text: data.text,
-        alpha: 1.0,
-        yOffset: 0
-    });
+    indicators.push({ x: data.x, y: data.y, text: data.text, alpha: 1.0, yOffset: 0 });
+});
+
+/* ===== CHAT RECEPTION LOOP EVENT ===== */
+socket.on('receiveChat', (data) => {
+    const line = document.createElement("div");
+    line.className = `chat-line ${data.isZombie ? 'zombie-msg' : ''}`;
+    
+    // Add custom icons based on player context parameters
+    let prefix = data.isZombie ? "🧟 " : "";
+    line.innerHTML = `<strong>${prefix}${data.name}:</strong> ${data.text}`;
+    
+    chatLog.appendChild(line);
+    chatLog.scrollTop = chatLog.scrollHeight; // Instantly scroll to newest message
+
+    // Automatically purge text lines after 6 seconds to clear up screen canvas space
+    setTimeout(() => {
+        line.style.transition = "opacity 0.5s";
+        line.style.opacity = 0;
+        setTimeout(() => line.remove(), 500);
+    }, 6000);
 });
 
 function renderShop() {
@@ -251,7 +320,6 @@ window.addEventListener("resize", resizeCanvas);
 
 playBtn.onclick = () => { join("normal"); };
 zombieBtn.onclick = () => { join("zombie"); };
-
 exitBtn.onclick = () => { resetToLobby(); };
 
 function join(targetRoom) {
@@ -261,6 +329,7 @@ function join(targetRoom) {
     uiPanel.style.display = "block";
     minimap.style.display = "block";
     exitBtn.style.display = "block";
+    chatWrapper.style.display = "block"; // Make chat view visible
     gameActive = true;
 }
 
@@ -270,10 +339,41 @@ function resetToLobby() {
     uiPanel.style.display = "none";
     minimap.style.display = "none";
     exitBtn.style.display = "none";
+    chatWrapper.style.display = "none";
+    if(isTyping) hideChatInput();
     menu.style.display = "flex";
     serverPlayers = {};
     indicators = [];
+    chatLog.innerHTML = "";
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+// CAPTURING INTERACTION MANAGEMENT TO LEVERAGE CHAT MODAL INTERFACES
+window.addEventListener("keydown", (e) => {
+    if (!gameActive) return;
+
+    if (e.key === "Enter") {
+        if (!isTyping) {
+            // Open and focus input box layout
+            isTyping = true;
+            chatInput.style.display = "block";
+            chatInput.focus();
+        } else {
+            // Send payload data, clear fields, hide input elements
+            let msg = chatInput.value;
+            if (msg.trim().length > 0) {
+                socket.emit('sendChat', msg);
+            }
+            hideChatInput();
+        }
+    }
+});
+
+function hideChatInput() {
+    isTyping = false;
+    chatInput.value = "";
+    chatInput.style.display = "none";
+    canvas.focus(); // Give focus back to mouse engine tracking shifts
 }
 
 socket.on('init', (data) => {
@@ -282,18 +382,9 @@ socket.on('init', (data) => {
     modeDisplay.innerText = data.currentMode === "zombie" ? "Zombie Infection" : "Normal";
 });
 
-socket.on('timerUpdate', (secondsLeft) => {
-    secondsSpan.innerText = secondsLeft;
-});
-
-socket.on('zombieModeStarted', (data) => {
-    timerDisplay.style.display = "block";
-    secondsSpan.innerText = data.duration;
-});
-
-socket.on('zombieModeEnded', () => {
-    alert("Match Finished! Next infection outbreak forming...");
-});
+socket.on('timerUpdate', (secondsLeft) => { secondsSpan.innerText = secondsLeft; });
+socket.on('zombieModeStarted', (data) => { timerDisplay.style.display = "block"; secondsSpan.innerText = data.duration; });
+socket.on('zombieModeEnded', () => { alert("Match Finished! Next infection outbreak forming..."); });
 
 socket.on('gameUpdate', (data) => {
     serverPlayers = data.players;
@@ -316,13 +407,10 @@ socket.on('gameUpdate', (data) => {
     }
 });
 
-socket.on('died', () => {
-    alert("YOU WERE CONSUMED!");
-    resetToLobby();
-});
+socket.on('died', () => { alert("YOU WERE CONSUMED!"); resetToLobby(); });
 
 window.addEventListener("mousemove", (e) => {
-    if (!gameActive) return;
+    if (!gameActive || isTyping) return; // Prevent erratic tracking vectors while typing text
     socket.emit('updateInput', { mouseX: e.clientX - canvas.width / 2, mouseY: e.clientY - canvas.height / 2 });
 });
 
@@ -347,26 +435,14 @@ function drawPlayers(){
     });
 }
 
-// Renders and updates small text counters that float upwards and fade out safely
 function drawIndicators() {
     for (let i = indicators.length - 1; i >= 0; i--) {
         let ind = indicators[i];
-        ctx.save();
-        ctx.globalAlpha = ind.alpha;
-        ctx.fillStyle = "#f1c40f"; 
-        ctx.font = "bold 24px Arial";
-        ctx.shadowColor = "black";
-        ctx.shadowBlur = 4;
-        ctx.textAlign = "center";
-        ctx.fillText(ind.text, ind.x, ind.y - ind.yOffset);
-        ctx.restore();
-
-        ind.yOffset += 1.2; 
-        ind.alpha -= 0.02;  
-
-        if (ind.alpha <= 0) {
-            indicators.splice(i, 1);
-        }
+        ctx.save(); ctx.globalAlpha = ind.alpha; ctx.fillStyle = "#f1c40f"; ctx.font = "bold 24px Arial";
+        ctx.shadowColor = "black"; ctx.shadowBlur = 4; ctx.textAlign = "center";
+        ctx.fillText(ind.text, ind.x, ind.y - ind.yOffset); ctx.restore();
+        ind.yOffset += 1.2; ind.alpha -= 0.02;  
+        if (ind.alpha <= 0) indicators.splice(i, 1);
     }
 }
 
@@ -392,12 +468,8 @@ function updateLeaderboard() {
 function gameLoop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (gameActive) {
-        ctx.save(); 
-        ctx.translate(-camera.x, -camera.y);
-        drawFoods(); 
-        drawPlayers(); 
-        drawIndicators(); 
-        ctx.restore();
+        ctx.save(); ctx.translate(-camera.x, -camera.y);
+        drawFoods(); drawPlayers(); drawIndicators(); ctx.restore();
         drawMinimap();
     }
     requestAnimationFrame(gameLoop);

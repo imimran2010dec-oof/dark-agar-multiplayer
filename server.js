@@ -8,7 +8,8 @@ const io = require('socket.io')(http, {
 const PORT = 3000;
 const WORLD_WIDTH = 5000;
 const WORLD_HEIGHT = 5000;
-const MAX_FOOD = 750; // Increased food density for more active early game scaling
+const MAX_FOOD = 750; 
+const BOTS_PER_LOBBY = 10; // Target bot ceiling per mode
 
 app.use(express.static(__dirname + '/public'));
 
@@ -19,21 +20,69 @@ let zombieTimer = 120;
 let zombieInterval = null;
 let zombieGameInProgress = false;
 
+// 1. REALISTIC GAMER TAG MATRIX BANK
+const botNames = [
+    "darkhusky54", "iaintnorobot", "shadow_ninja", "skibidi_slayer", "vortex_glider",
+    "alpha_omega", "toxic_bubble", "cell_maximus", "glitch_phantom", "nova_striker",
+    "hyper_drive", "quantum_core", "cosmic_dust", "vector_reaper", "blob_ross",
+    "sir_eats_alot", "matrix_run", "apex_predator", "nebula_knight", "pixel_perfect",
+    "cyber_ghost", "giga_chad_cell", "omega_pulse", "lunar_eclipse", "solar_flare"
+];
+
+// Randomized hex color engine for bots
+function getRandomColor() {
+    const colors = ["#3498db", "#ff3366", "#00ffcc", "#f1c40f", "#9b59b6", "#e67e22"];
+    return colors[Math.floor(Math.random() * colors.length)];
+}
+
 function spawnFood(room) {
     roomFoods[room].push({
         id: Math.random().toString(36).substring(2, 9),
         x: Math.random() * WORLD_WIDTH,
         y: Math.random() * WORLD_HEIGHT,
         radius: 6,
-        color: `hsl(${Math.random() * 360}, 85%, 60%)` // Vibrant neon spectrum colors
+        color: `hsl(${Math.random() * 360}, 85%, 60%)`
     });
 }
 
-// Populate arenas
 for (let i = 0; i < MAX_FOOD; i++) {
     spawnFood("normal");
     spawnFood("zombie");
 }
+
+// 2. REVENUE / AUTOMATED BOT MANAGEMENT LOOP
+function maintainBotCount(room) {
+    let currentBots = Object.values(players).filter(p => p.isBot && p.room === room);
+    
+    if (currentBots.length < BOTS_PER_LOBBY) {
+        let spawnCount = BOTS_PER_LOBBY - currentBots.length;
+        for (let i = 0; i < spawnCount; i++) {
+            let randomId = 'bot_' + Math.random().toString(36).substring(2, 9);
+            let nameSeed = botNames[Math.floor(Math.random() * botNames.length)];
+            let suffix = Math.floor(Math.random() * 90 + 10); // Adds variance like 'shadow_ninja74'
+            
+            players[randomId] = {
+                id: randomId,
+                name: Math.random() > 0.4 ? `${nameSeed}${suffix}` : nameSeed,
+                color: getRandomColor(),
+                baseColor: getRandomColor(),
+                x: Math.random() * (WORLD_WIDTH - 200) + 100,
+                y: Math.random() * (WORLD_HEIGHT - 200) + 100,
+                radius: Math.random() * 10 + 20, // Spawn bots at various early sizes
+                mouseX: Math.random() * 200 - 100, // Pre-load directional vectors
+                mouseY: Math.random() * 200 - 100,
+                isZombie: false,
+                room: room,
+                isBot: true,
+                changeDirTimer: Math.random() * 60 // Frame countdown tracker for artificial decisions
+            };
+        }
+    }
+}
+
+// Check and prime initial bot grids
+maintainBotCount("normal");
+maintainBotCount("zombie");
 
 function startZombieMatch() {
     let zombieRoomPlayers = Object.values(players).filter(p => p.room === "zombie");
@@ -47,7 +96,7 @@ function startZombieMatch() {
         p.radius = 24; 
     });
 
-    let zombieCount = Math.max(1, Math.floor(zombieRoomPlayers.length / 2));
+    let zombieCount = Math.max(1, Math.floor(zombieRoomPlayers.length / 4)); // Adjusted for bot scaling density
     let shuffled = zombieRoomPlayers.sort(() => 0.5 - Math.random());
     
     for (let i = 0; i < zombieCount; i++) {
@@ -63,9 +112,9 @@ function startZombieMatch() {
         
         let activeZombiePlayers = Object.values(players).filter(p => p.room === "zombie");
         let zombieAlive = activeZombiePlayers.some(p => p.isZombie);
-        let humanAlive = activeZombiePlayers.some(p => !p.isZombie);
+        let humanAlive = activeZombiePlayers.some(p => !p.isZombie && !p.isBot); // Needs at least one real human alive
 
-        if (zombieTimer <= 0 || !humanAlive || !zombieAlive) {
+        if (zombieTimer <= 0 || !zombieAlive || (!humanAlive && Object.values(players).filter(p => !p.isBot && p.room === "zombie").length > 0)) {
             endZombieMatch();
         } else {
             io.to("zombie").emit('timerUpdate', zombieTimer);
@@ -78,11 +127,11 @@ function endZombieMatch() {
     zombieGameInProgress = false;
 
     let activeZombiePlayers = Object.values(players).filter(p => p.room === "zombie");
-    let humanAlive = activeZombiePlayers.some(p => !p.isZombie);
+    let humanAlive = activeZombiePlayers.some(p => !p.isZombie && !p.isBot);
 
     if (zombieTimer <= 0 && humanAlive) {
         activeZombiePlayers.forEach(p => {
-            if (!p.isZombie) {
+            if (!p.isZombie && !p.isBot) {
                 io.to(p.id).emit('earnCoins', 20);
             }
         });
@@ -113,7 +162,8 @@ io.on('connection', (socket) => {
             mouseX: 0,
             mouseY: 0,
             isZombie: false,
-            room: selectedRoom
+            room: selectedRoom,
+            isBot: false
         };
         
         socket.emit('init', { worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, currentMode: selectedRoom });
@@ -125,7 +175,7 @@ io.on('connection', (socket) => {
 
     socket.on('sendChat', (msg) => {
         let p = players[socket.id];
-        if (p && msg.trim().length > 0) {
+        if (p && !p.isBot && msg.trim().length > 0) {
             let cleanMsg = msg.substring(0, 60).replace(/</g, "&lt;");
             io.to(p.room).emit('receiveChat', { name: p.name, text: cleanMsg, isZombie: p.isZombie });
         }
@@ -140,7 +190,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('updateInput', (data) => {
-        if (players[socket.id]) {
+        if (players[socket.id] && !players[socket.id].isBot) {
             players[socket.id].mouseX = data.mouseX;
             players[socket.id].mouseY = data.mouseY;
         }
@@ -151,42 +201,57 @@ io.on('connection', (socket) => {
     });
 });
 
-// Central Engine Frame Updates (60Hz Grid Sync)
+// Central Engine Physics Tick Loop (60Hz)
 setInterval(() => {
     let deadPlayers = [];
+
+    // Enforce balance sweeps across both lobby matrices
+    maintainBotCount("normal");
+    maintainBotCount("zombie");
 
     Object.keys(players).forEach(id => {
         let p = players[id];
         if (!p || deadPlayers.includes(id)) return;
         
         let currentRoom = p.room;
+
+        // 3. ARTIFICIAL INTELLIGENCE SIMULATOR BEHAVIOR
+        if (p.isBot) {
+            p.changeDirTimer--;
+            if (p.changeDirTimer <= 0) {
+                // Bots pick a new mock target trajectory offset coordinate frame roughly every 1-3 seconds
+                p.mouseX = Math.random() * 400 - 200;
+                p.mouseY = Math.random() * 400 - 200;
+                p.changeDirTimer = Math.random() * 120 + 60;
+            }
+            
+            // Randomly simulate bot chat behavior to make lobbies feel incredibly alive
+            if (Math.random() < 0.0005) {
+                const phrases = ["gg", "close one!", "wow lag", "team?", "bruh", "nice skin", "out of my way"];
+                let randPhrase = phrases[Math.floor(Math.random() * phrases.length)];
+                io.to(p.room).emit('receiveChat', { name: p.name, text: randPhrase, isZombie: p.isZombie });
+            }
+        }
+
         let dx = p.mouseX;
         let dy = p.mouseY;
         let dist = Math.hypot(dx, dy);
         
-        // Physics Formula Improvement: Enhanced exponential velocity friction curves
         let baseSpeed = p.isZombie ? 7.5 : 6.0; 
         let speed = Math.max(1.8, baseSpeed * Math.sqrt(24 / p.radius));
 
         if (dist > 5) {
-            // Apply fluid vector dampening based on mouse target proximity offsets
-            let targetX = (dx / dist) * speed;
-            let targetY = (dy / dist) * speed;
-            
-            // Linear velocity interpolation smoothing out network jitters
-            p.x += targetX;
-            p.y += targetY;
+            p.x += (dx / dist) * speed;
+            p.y += (dy / dist) * speed;
         }
 
-        // Strict Map Boundaries Elastic Deflection Guardrails
         p.x = Math.max(p.radius, Math.min(WORLD_WIDTH - p.radius, p.x));
         p.y = Math.max(p.radius, Math.min(WORLD_HEIGHT - p.radius, p.y));
 
-        // Food Collision Calculations
+        // Food Processing Loop
         let foods = roomFoods[currentRoom] || [];
         for (let i = foods.length - 1; i >= 0; i--) {
             if (Math.hypot(p.x - foods[i].x, p.y - foods[i].y) < p.radius) {
-                // Proportional Mass Expansion Optimization
                 let playerArea = Math.PI * p.radius * p.radius;
                 let foodArea = Math.PI * foods[i].radius * foods[i].radius;
                 p.radius = Math.sqrt((playerArea + foodArea) / Math.PI);
@@ -196,7 +261,7 @@ setInterval(() => {
             }
         }
 
-        // Inter-Entity Player Contact Assertions
+        // Cell-on-Cell Combat Operations Matrix
         Object.keys(players).forEach(otherId => {
             if (id === otherId || deadPlayers.includes(otherId) || deadPlayers.includes(id)) return;
             
@@ -210,20 +275,23 @@ setInterval(() => {
                     if (p.isZombie && !other.isZombie) {
                         other.isZombie = true;
                         other.color = "#2ecc71";
-                        io.to(id).emit('killIndicator', { x: other.x, y: other.y, text: "➕ INFECTED!" });
+                        if (!p.isBot) io.to(id).emit('killIndicator', { x: other.x, y: other.y, text: "➕ INFECTED!" });
                     }
                 }
             } else {
-                // Size Requirement: Attacking cell must be at least 15% larger in surface diameter
                 if (p.radius > other.radius * 1.15 && pDist < p.radius - (other.radius / 3)) {
                     let playerArea = Math.PI * p.radius * p.radius;
                     let targetArea = Math.PI * other.radius * other.radius;
                     p.radius = Math.sqrt((playerArea + targetArea) / Math.PI);
 
-                    io.to(id).emit('earnCoins', 1);
-                    io.to(id).emit('killIndicator', { x: other.x, y: other.y, text: "🪙 +1 COIN" });
+                    if (!p.isBot) {
+                        io.to(id).emit('earnCoins', 1);
+                        io.to(id).emit('killIndicator', { x: other.x, y: other.y, text: "🪙 +1 COIN" });
+                    }
 
-                    io.to(otherId).emit('died');
+                    if (!other.isBot) {
+                        io.to(otherId).emit('died');
+                    }
                     deadPlayers.push(otherId);
                 }
             }

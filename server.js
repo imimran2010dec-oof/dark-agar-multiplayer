@@ -8,15 +8,12 @@ const io = require('socket.io')(http, {
 const PORT = 3000;
 const WORLD_WIDTH = 5000;
 const WORLD_HEIGHT = 5000;
-const MAX_FOOD = 600; 
+const MAX_FOOD = 750; // Increased food density for more active early game scaling
 
 app.use(express.static(__dirname + '/public'));
 
 let players = {};
-let roomFoods = {
-    normal: [],
-    zombie: []
-};
+let roomFoods = { normal: [], zombie: [] };
 
 let zombieTimer = 120;
 let zombieInterval = null;
@@ -27,11 +24,12 @@ function spawnFood(room) {
         id: Math.random().toString(36).substring(2, 9),
         x: Math.random() * WORLD_WIDTH,
         y: Math.random() * WORLD_HEIGHT,
-        radius: 5,
-        color: `hsl(${Math.random() * 360}, 100%, 50%)`
+        radius: 6,
+        color: `hsl(${Math.random() * 360}, 85%, 60%)` // Vibrant neon spectrum colors
     });
 }
 
+// Populate arenas
 for (let i = 0; i < MAX_FOOD; i++) {
     spawnFood("normal");
     spawnFood("zombie");
@@ -46,7 +44,7 @@ function startZombieMatch() {
 
     zombieRoomPlayers.forEach(p => {
         p.isZombie = false;
-        p.radius = 20; 
+        p.radius = 24; 
     });
 
     let zombieCount = Math.max(1, Math.floor(zombieRoomPlayers.length / 2));
@@ -95,25 +93,23 @@ function endZombieMatch() {
     activeZombiePlayers.forEach(p => {
         p.isZombie = false;
         p.color = p.baseColor;
-        p.radius = 20;
+        p.radius = 24;
     });
 }
 
 io.on('connection', (socket) => {
-    console.log(`Player connected: ${socket.id}`);
-
     socket.on('joinGame', (data) => {
         let selectedRoom = data.room || "normal";
         socket.join(selectedRoom);
 
         players[socket.id] = {
             id: socket.id,
-            name: data.name || "Guest",
+            name: data.name.trim().substring(0, 12) || "Unnamed Cell",
             color: data.color || "#3498db",
             baseColor: data.color || "#3498db", 
-            x: WORLD_WIDTH / 2 + (Math.random() * 200 - 100),
-            y: WORLD_HEIGHT / 2 + (Math.random() * 200 - 100),
-            radius: 20,
+            x: Math.random() * (WORLD_WIDTH - 200) + 100,
+            y: Math.random() * (WORLD_HEIGHT - 200) + 100,
+            radius: 24,
             mouseX: 0,
             mouseY: 0,
             isZombie: false,
@@ -127,12 +123,10 @@ io.on('connection', (socket) => {
         }
     });
 
-    // CHAT MESSAGE PIPELINE LAYER
     socket.on('sendChat', (msg) => {
         let p = players[socket.id];
         if (p && msg.trim().length > 0) {
-            // Trim down massive messages to prevent spam layout breaks
-            let cleanMsg = msg.substring(0, 60);
+            let cleanMsg = msg.substring(0, 60).replace(/</g, "&lt;");
             io.to(p.room).emit('receiveChat', { name: p.name, text: cleanMsg, isZombie: p.isZombie });
         }
     });
@@ -142,7 +136,6 @@ io.on('connection', (socket) => {
             let room = players[socket.id].room;
             socket.leave(room);
             delete players[socket.id];
-            console.log(`Player left room: ${socket.id}`);
         }
     });
 
@@ -154,11 +147,11 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        console.log(`Player disconnected: ${socket.id}`);
         delete players[socket.id];
     });
 });
 
+// Central Engine Frame Updates (60Hz Grid Sync)
 setInterval(() => {
     let deadPlayers = [];
 
@@ -171,29 +164,39 @@ setInterval(() => {
         let dy = p.mouseY;
         let dist = Math.hypot(dx, dy);
         
-        let baseSpeed = p.isZombie ? 6 : 5; 
-        let speed = Math.max(1.5, baseSpeed * (20 / p.radius));
+        // Physics Formula Improvement: Enhanced exponential velocity friction curves
+        let baseSpeed = p.isZombie ? 7.5 : 6.0; 
+        let speed = Math.max(1.8, baseSpeed * Math.sqrt(24 / p.radius));
 
-        if (dist > 10) {
-            p.x += (dx / dist) * speed;
-            p.y += (dy / dist) * speed;
+        if (dist > 5) {
+            // Apply fluid vector dampening based on mouse target proximity offsets
+            let targetX = (dx / dist) * speed;
+            let targetY = (dy / dist) * speed;
+            
+            // Linear velocity interpolation smoothing out network jitters
+            p.x += targetX;
+            p.y += targetY;
         }
 
+        // Strict Map Boundaries Elastic Deflection Guardrails
         p.x = Math.max(p.radius, Math.min(WORLD_WIDTH - p.radius, p.x));
         p.y = Math.max(p.radius, Math.min(WORLD_HEIGHT - p.radius, p.y));
 
+        // Food Collision Calculations
         let foods = roomFoods[currentRoom] || [];
         for (let i = foods.length - 1; i >= 0; i--) {
             if (Math.hypot(p.x - foods[i].x, p.y - foods[i].y) < p.radius) {
-                let a1 = Math.PI * p.radius * p.radius;
-                let a2 = Math.PI * 5 * 5;
-                p.radius = Math.sqrt((a1 + a2) / Math.PI);
+                // Proportional Mass Expansion Optimization
+                let playerArea = Math.PI * p.radius * p.radius;
+                let foodArea = Math.PI * foods[i].radius * foods[i].radius;
+                p.radius = Math.sqrt((playerArea + foodArea) / Math.PI);
                 
                 foods.splice(i, 1);
                 spawnFood(currentRoom); 
             }
         }
 
+        // Inter-Entity Player Contact Assertions
         Object.keys(players).forEach(otherId => {
             if (id === otherId || deadPlayers.includes(otherId) || deadPlayers.includes(id)) return;
             
@@ -207,17 +210,18 @@ setInterval(() => {
                     if (p.isZombie && !other.isZombie) {
                         other.isZombie = true;
                         other.color = "#2ecc71";
-                        io.to(id).emit('killIndicator', { x: other.x, y: other.y, text: "INFECTED!" });
+                        io.to(id).emit('killIndicator', { x: other.x, y: other.y, text: "➕ INFECTED!" });
                     }
                 }
             } else {
-                if (p.radius > other.radius * 1.15 && pDist < p.radius) {
-                    let a1 = Math.PI * p.radius * p.radius;
-                    let a2 = Math.PI * other.radius * other.radius;
-                    p.radius = Math.sqrt((a1 + a2) / Math.PI);
+                // Size Requirement: Attacking cell must be at least 15% larger in surface diameter
+                if (p.radius > other.radius * 1.15 && pDist < p.radius - (other.radius / 3)) {
+                    let playerArea = Math.PI * p.radius * p.radius;
+                    let targetArea = Math.PI * other.radius * other.radius;
+                    p.radius = Math.sqrt((playerArea + targetArea) / Math.PI);
 
                     io.to(id).emit('earnCoins', 1);
-                    io.to(id).emit('killIndicator', { x: other.x, y: other.y, text: "+1 Coin" });
+                    io.to(id).emit('killIndicator', { x: other.x, y: other.y, text: "🪙 +1 COIN" });
 
                     io.to(otherId).emit('died');
                     deadPlayers.push(otherId);

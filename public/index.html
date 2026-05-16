@@ -3,153 +3,132 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dark Agar Online</title>
+<title>Dark Agar Premium</title>
 <script src="/socket.io/socket.io.js"></script>
 
 <style>
-*{ margin:0; padding:0; box-sizing:border-box; }
-html, body{ width:100%; height:100%; overflow:hidden; background:#050505; font-family:Arial,sans-serif; }
+:root {
+    --primary: #3498db;
+    --zombie: #2ecc71;
+    --accent: #e74c3c;
+    --shop: #f1c40f;
+    --panel-bg: rgba(10, 10, 15, 0.75);
+    --border: rgba(255, 255, 255, 0.08);
+    --glow: 0 0 20px rgba(52, 152, 219, 0.3);
+}
 
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; user-select: none; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #020205; color: #fff; }
+
+/* Premium Glassmorphism Overlays */
 .screen-overlay {
-    position:fixed;
-    inset:0;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    background: radial-gradient(circle, #111, #050505);
-    z-index:9999;
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at center, rgba(15, 15, 25, 0.85) 0%, #030308 100%);
+    backdrop-filter: blur(20px);
+    z-index: 9999;
+    transition: opacity 0.4s ease;
 }
-.box-layout {
-    width:400px;
-    background: rgba(20,20,20,0.95);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius:20px;
-    padding:25px;
-    color:white;
-    text-align:center;
-    backdrop-filter:blur(12px);
-    box-shadow: 0 0 40px rgba(0,0,0,0.7);
-}
-h1{ margin-bottom:15px; font-size:32px; letter-spacing: 1px; color: #fff; }
-input{
-    width:100%;
-    padding:14px;
-    border:none;
-    border-radius:12px;
-    background:#111;
-    color:white;
-    margin-bottom:15px;
-    outline:none;
-    border: 1px solid rgba(255,255,255,0.05);
-}
-button{
-    width:100%;
-    padding:14px;
-    border:none;
-    border-radius:12px;
-    background:#3498db;
-    color:white;
-    font-size:16px;
-    font-weight: bold;
-    cursor:pointer;
-    transition:0.2s;
-    margin-bottom: 10px;
-}
-button:hover{ transform:scale(1.02); filter: brightness(1.1); }
-.secondary-btn { background: #2c3e50; }
-.zombie-btn { background: #2ecc71; color: #000; }
-.shop-btn { background: #e67e22; }
 
-#ui{
-    position:fixed;
-    top:15px;
-    left:15px;
-    z-index:100;
-    background: rgba(15,15,15,0.85);
-    color:white;
-    padding:15px;
-    border-radius:166px;
-    border: 1px solid rgba(255,255,255,0.08);
-    min-width:220px;
-    backdrop-filter:blur(10px);
-    border-radius: 16px;
+.box-layout {
+    width: 440px;
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 35px;
+    text-align: center;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 40px rgba(255, 255, 255, 0.02);
 }
-.stat{ margin-bottom:8px; color:#ddd; }
-#timerDisplay { display: none; color: #e74c3c; font-weight: bold; font-size: 18px; margin-top: 5px; }
-#leaderboard{ margin-top:12px; padding-top:10px; border-top: 1px solid rgba(255,255,255,0.08); color:#bbb; }
+
+h1 { font-size: 38px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 5px; background: linear-gradient(135deg, #fff 30%, #a5b4fc 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.subtitle { font-size: 13px; color: #64748b; margin-bottom: 25px; text-transform: uppercase; letter-spacing: 2px; }
+
+input {
+    width: 100%;
+    padding: 16px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.03);
+    color: white;
+    margin-bottom: 20px;
+    outline: none;
+    border: 1px solid var(--border);
+    font-size: 16px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+input:focus { border-color: var(--primary); background: rgba(255, 255, 255, 0.06); box-shadow: var(--glow); }
+
+button {
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: white;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-bottom: 12px;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+}
+button:hover { transform: translateY(-2px); filter: brightness(1.1); box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4); }
+button:active { transform: translateY(0); }
+
+.zombie-btn { background: linear-gradient(135deg, #059669, #047857); box-shadow: 0 4px 12px rgba(5, 150, 105, 0.2); }
+.zombie-btn:hover { box-shadow: 0 6px 20px rgba(5, 150, 105, 0.4); }
+.shop-btn { background: linear-gradient(135deg, #d97706, #b45309); box-shadow: 0 4px 12px rgba(217, 119, 6, 0.2); }
+.shop-btn:hover { box-shadow: 0 6px 20px rgba(217, 119, 6, 0.4); }
+.secondary-btn { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); color: #94a3b8; box-shadow: none; }
+.secondary-btn:hover { background: rgba(255, 255, 255, 0.08); color: #fff; box-shadow: none; }
+
+/* HUD Modules */
+#ui {
+    position: fixed; top: 20px; left: 20px; z-index: 100;
+    background: var(--panel-bg); border: 1px solid var(--border);
+    padding: 20px; border-radius: 20px; min-width: 240px;
+    backdrop-filter: blur(10px); box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+.stat { margin-bottom: 10px; font-size: 14px; color: #94a3b8; display: flex; justify-content: space-between; align-items: center; }
+.stat span { color: #fff; font-weight: 600; }
+#timerDisplay { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); text-align: center; color: var(--accent); font-weight: 800; font-size: 20px; letter-spacing: 0.5px; }
+
+#leaderboard { margin-top: 15px; padding-top: 12px; border-top: 1px solid var(--border); }
+#leaderboard h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; color: #64748b; margin-bottom: 8px; }
+.lb-entry { font-size: 13px; padding: 3px 0; color: #cbd5e1; display: flex; justify-content: space-between; }
 
 #exitBtn {
-    position: fixed;
-    top: 15px;
-    right: 20px;
-    z-index: 101;
-    width: auto;
-    padding: 10px 20px;
-    background: #e74c3c;
-    display: none; 
+    position: fixed; top: 20px; right: 20px; z-index: 101; width: auto;
+    padding: 12px 24px; background: linear-gradient(135deg, #dc2626, #b91c1c);
+    border-radius: 12px; display: none; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2);
 }
+#exitBtn:hover { box-shadow: 0 6px 20px rgba(220, 38, 38, 0.4); }
 
-/* ===== NEW CHAT BOX INTERFACE SYSTEMS ===== */
-#chatWrapper {
-    position: fixed;
-    bottom: 20px;
-    left: 20px;
-    width: 320px;
-    z-index: 1005;
-    display: none; /* revealed upon joining game rooms */
-    pointer-events: none;
-}
-#chatLog {
-    width: 100%;
-    max-height: 160px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin-bottom: 8px;
-    font-size: 14px;
-    text-shadow: 1px 1px 2px rgba(0,0,0,1);
-}
-.chat-line {
-    background: rgba(0,0,0,0.4);
-    padding: 4px 8px;
-    border-radius: 6px;
-    color: #fff;
-    width: fit-content;
-    max-width: 100%;
-    word-break: break-all;
-    animation: fadeIn 0.2s ease-out;
-}
-.chat-line.zombie-msg { color: #2ecc71; font-weight: bold; }
-#chatInput {
-    width: 100%;
-    padding: 10px 14px;
-    border-radius: 8px;
-    background: rgba(15,15,15,0.9);
-    border: 1px solid rgba(255,255,255,0.15);
-    color: #fff;
-    font-size: 14px;
-    outline: none;
-    pointer-events: auto;
-    display: none; /* hidden until enter key hits focus */
-}
+/* Premium Floating Chat Window */
+#chatWrapper { position: fixed; bottom: 20px; left: 20px; width: 340px; z-index: 1005; display: none; pointer-events: none; }
+#chatLog { width: 100%; max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; pointer-events: none; }
+#chatLog::-webkit-scrollbar { width: 0px; }
+.chat-line { background: rgba(10, 10, 15, 0.65); border: 1px solid rgba(255,255,255,0.03); padding: 6px 12px; border-radius: 10px; color: #e2e8f0; width: fit-content; max-width: 100%; word-break: break-all; font-size: 13px; backdrop-filter: blur(4px); box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+.chat-line.zombie-msg { border-color: rgba(46, 204, 113, 0.2); background: rgba(10, 35, 20, 0.7); }
+#chatInput { width: 100%; padding: 12px 16px; border-radius: 12px; background: rgba(5, 5, 10, 0.85); border: 1px solid var(--border); color: #fff; font-size: 14px; outline: none; pointer-events: auto; display: none; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+#chatInput:focus { border-color: rgba(255,255,255,0.2); }
 
-#minimap {
-    position: fixed; bottom: 20px; right: 20px;
-    width: 200px; height: 200px; z-index: 1000; 
-    border-radius: 16px; background: #111;
-    border: 2px solid rgba(255, 255, 255, 0.15);
-}
+/* Shop Module */
+.currency-display { font-size: 18px; color: var(--shop); font-weight: 700; margin-bottom: 20px; letter-spacing: 0.5px; }
+.shop-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 25px; max-height: 220px; overflow-y: auto; padding: 4px; }
+.shop-grid::-webkit-scrollbar { width: 4px; }
+.shop-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+.shop-item { background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 16px; padding: 15px 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 10px; transition: all 0.2s ease; }
+.shop-item:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.15); transform: translateY(-2px); }
+.shop-item.selected { border-color: var(--primary); background: rgba(52, 152, 219, 0.08); box-shadow: inset 0 0 12px rgba(52,152,219,0.15); }
+.shop-circle { width: 36px; height: 36px; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+.price-tag { font-size: 12px; color: #94a3b8; font-weight: 600; background: rgba(255,255,255,0.04); padding: 2px 8px; border-radius: 20px; }
+.shop-item.selected .price-tag { color: var(--primary); background: rgba(52, 152, 219, 0.15); }
+
+#minimap { position: fixed; bottom: 20px; right: 20px; width: 180px; height: 180px; z-index: 1000; border-radius: 20px; background: var(--panel-bg); border: 1px solid var(--border); backdrop-filter: blur(5px); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
 canvas#gameCanvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; display: block; z-index: 1; }
-
-.shop-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; max-height: 180px; overflow-y: auto; padding: 5px; }
-.shop-item { background: #111; border: 2px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 10px 5px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.shop-item.selected { border-color: #2ecc71; }
-.shop-circle { width: 30px; height: 30px; border-radius: 50%; }
-.price-tag { font-size: 11px; color: #f1c40f; font-weight: bold; }
-.currency-display { font-size: 16px; color: #f1c40f; margin-bottom: 15px; font-weight: bold; }
-
-@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 </head>
 <body>
@@ -158,39 +137,44 @@ canvas#gameCanvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100v
 
 <div id="menu" class="screen-overlay">
     <div class="box-layout">
-        <h1>Dark Agar Online</h1>
-        <div class="currency-display">🪙 Coins: <span class="coin-count">0</span></div>
-        <input id="nameInput" placeholder="Enter Name" maxlength="10" />
-        <button id="playBtn">PLAY NORMAL LOBBY</button>
-        <button id="zombieBtn" class="zombie-btn">ENTER ZOMBIE LOBBY</button>
-        <button id="openShopBtn" class="secondary-btn shop-btn">SKIN SHOP</button>
+        <h1>DARK AGAR</h1>
+        <div class="subtitle">Premium Arena Edition</div>
+        <div class="currency-display">🪙 <span class="coin-count">0</span> COINS</div>
+        <input id="nameInput" placeholder="Enter Nickname..." maxlength="12" />
+        <button id="playBtn">ENTER CLASSIC MODE</button>
+        <button id="zombieBtn" class="zombie-btn">ENTER ZOMBIE MODE</button>
+        <button id="openShopBtn" class="secondary-btn shop-btn">EQUIP SKINS</button>
     </div>
 </div>
 
 <div id="shopScreen" class="screen-overlay" style="display: none;">
     <div class="box-layout">
-        <h1>Skin Shop</h1>
-        <div class="currency-display">Your Coins: 🪙<span class="coin-count">0</span></div>
+        <h1>ARENA APPAREL</h1>
+        <div class="subtitle">Unlock Vector Skins</div>
+        <div class="currency-display">BALANCE: 🪙 <span class="coin-count">0</span></div>
         <div class="shop-grid" id="shopGrid"></div>
-        <button id="closeShopBtn" class="secondary-btn">BACK TO LOBBY</button>
+        <button id="closeShopBtn" class="secondary-btn">RETURN TO LOBBY</button>
     </div>
 </div>
 
 <div id="ui" style="display:none;">
-    <div class="stat">Room: <span id="modeDisplay" style="text-transform:uppercase; font-weight:bold;">Normal</span></div>
-    <div id="timerDisplay">Time Left: <span id="seconds">120</span>s</div>
-    <div class="stat">Mass: <span id="score">0</span></div>
-    <div class="stat">Lobby Players: <span id="playersCount">0</span></div>
-    <div id="leaderboard"><b>Leaderboard</b></div>
+    <div class="stat">Arena Room <span id="modeDisplay">NORMAL</span></div>
+    <div class="stat">Current Mass <span id="score">0</span></div>
+    <div class="stat">Active Cells <span id="playersCount">0</span></div>
+    <div id="timerDisplay">⏳ <span id="seconds">120</span>s</div>
+    <div id="leaderboard">
+        <h3>Leaderboard</h3>
+        <div id="lbContent"></div>
+    </div>
 </div>
 
 <div id="chatWrapper">
     <div id="chatLog"></div>
-    <input id="chatInput" placeholder="Press Enter to say something..." maxlength="60" />
+    <input id="chatInput" placeholder="Type a message, hit Enter..." maxlength="60" autocomplete="off" />
 </div>
 
 <canvas id="gameCanvas"></canvas>
-<canvas id="minimap" width="200" height="200" style="display:none;"></canvas>
+<canvas id="minimap" width="180" height="180" style="display:none;"></canvas>
 
 <script>
 const socket = io();
@@ -199,6 +183,7 @@ const ctx = canvas.getContext("2d");
 const minimap = document.getElementById("minimap");
 const miniCtx = minimap.getContext("2d");
 
+// Element Handles
 const menu = document.getElementById("menu");
 const shopScreen = document.getElementById("shopScreen");
 const playBtn = document.getElementById("playBtn");
@@ -208,16 +193,13 @@ const nameInput = document.getElementById("nameInput");
 const openShopBtn = document.getElementById("openShopBtn");
 const closeShopBtn = document.getElementById("closeShopBtn");
 const shopGrid = document.getElementById("shopGrid");
-
 const scoreElement = document.getElementById("score");
 const playersCount = document.getElementById("playersCount");
-const leaderboardDiv = document.getElementById("leaderboard");
+const lbContent = document.getElementById("lbContent");
 const modeDisplay = document.getElementById("modeDisplay");
 const timerDisplay = document.getElementById("timerDisplay");
 const secondsSpan = document.getElementById("seconds");
 const uiPanel = document.getElementById("ui");
-
-// Chat UI Hooks
 const chatWrapper = document.getElementById("chatWrapper");
 const chatLog = document.getElementById("chatLog");
 const chatInput = document.getElementById("chatInput");
@@ -229,12 +211,14 @@ let selectedSkin = localStorage.getItem("agar_selected_skin") || "#3498db";
 let indicators = [];
 let isTyping = false;
 
+// Premium Custom Skin Matrix Layout Configurations
 const availableSkins = [
-    { color: "#3498db", price: 0, name: "Default" },
-    { color: "#ff3300", price: 15, name: "Crimson" },
-    { color: "#00ff66", price: 25, name: "Lime" },
-    { color: "#ffd700", price: 40, name: "Gold" },
-    { color: "#ff00ff", price: 50, name: "Nebula" }
+    { color: "#3498db", price: 0, name: "Neon Blue" },
+    { color: "#ff3366", price: 15, name: "Hot Coral" },
+    { color: "#00ffcc", price: 25, name: "Cyan Spark" },
+    { color: "#f1c40f", price: 40, name: "Gold Matrix" },
+    { color: "#9b59b6", price: 50, name: "Deep Amethyst" },
+    { color: "#e67e22", price: 65, name: "Plasma Orange" }
 ];
 
 function updateCoinDisplays() {
@@ -252,23 +236,17 @@ socket.on('killIndicator', (data) => {
     indicators.push({ x: data.x, y: data.y, text: data.text, alpha: 1.0, yOffset: 0 });
 });
 
-/* ===== CHAT RECEPTION LOOP EVENT ===== */
 socket.on('receiveChat', (data) => {
     const line = document.createElement("div");
     line.className = `chat-line ${data.isZombie ? 'zombie-msg' : ''}`;
-    
-    // Add custom icons based on player context parameters
     let prefix = data.isZombie ? "🧟 " : "";
     line.innerHTML = `<strong>${prefix}${data.name}:</strong> ${data.text}`;
-    
     chatLog.appendChild(line);
-    chatLog.scrollTop = chatLog.scrollHeight; // Instantly scroll to newest message
-
-    // Automatically purge text lines after 6 seconds to clear up screen canvas space
+    chatLog.scrollTop = chatLog.scrollHeight;
     setTimeout(() => {
-        line.style.transition = "opacity 0.5s";
+        line.style.transition = "opacity 0.6s ease";
         line.style.opacity = 0;
-        setTimeout(() => line.remove(), 500);
+        setTimeout(() => line.remove(), 600);
     }, 6000);
 });
 
@@ -279,10 +257,12 @@ function renderShop() {
         const isSelected = selectedSkin === skin.color;
         const item = document.createElement("div");
         item.className = `shop-item ${isSelected ? 'selected' : ''}`;
+        
+        let statusText = isUnlocked ? (isSelected ? 'EQUIPPED' : 'READY') : `🪙 ${skin.price}`;
         item.innerHTML = `
-            <div class="shop-circle" style="background: ${skin.color}"></div>
-            <div style="font-size:12px;">${skin.name}</div>
-            <div class="price-tag">${isUnlocked ? (isSelected ? 'READY' : 'EQUIP') : '🪙' + skin.price}</div>
+            <div class="shop-circle" style="background: radial-gradient(circle at 35% 35%, ${skin.color} 0%, #000 140%)"></div>
+            <div style="font-size:12px; font-weight:600;">${skin.name}</div>
+            <div class="price-tag">${statusText}</div>
         `;
         item.onclick = () => {
             if (isUnlocked) {
@@ -323,13 +303,13 @@ zombieBtn.onclick = () => { join("zombie"); };
 exitBtn.onclick = () => { resetToLobby(); };
 
 function join(targetRoom) {
-    let name = nameInput.value || "Guest";
+    let name = nameInput.value.trim() || "Guest Cell";
     socket.emit('joinGame', { name: name, color: selectedSkin, room: targetRoom });
-    menu.style.display = "none";
+    menu.style.opacity = 0; setTimeout(() => menu.style.display = "none", 400);
     uiPanel.style.display = "block";
     minimap.style.display = "block";
     exitBtn.style.display = "block";
-    chatWrapper.style.display = "block"; // Make chat view visible
+    chatWrapper.style.display = "block";
     gameActive = true;
 }
 
@@ -341,29 +321,23 @@ function resetToLobby() {
     exitBtn.style.display = "none";
     chatWrapper.style.display = "none";
     if(isTyping) hideChatInput();
-    menu.style.display = "flex";
+    menu.style.display = "flex"; setTimeout(() => menu.style.opacity = 1, 50);
     serverPlayers = {};
     indicators = [];
     chatLog.innerHTML = "";
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
 
-// CAPTURING INTERACTION MANAGEMENT TO LEVERAGE CHAT MODAL INTERFACES
 window.addEventListener("keydown", (e) => {
     if (!gameActive) return;
-
     if (e.key === "Enter") {
         if (!isTyping) {
-            // Open and focus input box layout
             isTyping = true;
             chatInput.style.display = "block";
             chatInput.focus();
         } else {
-            // Send payload data, clear fields, hide input elements
             let msg = chatInput.value;
-            if (msg.trim().length > 0) {
-                socket.emit('sendChat', msg);
-            }
+            if (msg.trim().length > 0) socket.emit('sendChat', msg);
             hideChatInput();
         }
     }
@@ -373,23 +347,23 @@ function hideChatInput() {
     isTyping = false;
     chatInput.value = "";
     chatInput.style.display = "none";
-    canvas.focus(); // Give focus back to mouse engine tracking shifts
+    canvas.focus();
 }
 
 socket.on('init', (data) => {
     WORLD_WIDTH = data.worldWidth;
     WORLD_HEIGHT = data.worldHeight;
-    modeDisplay.innerText = data.currentMode === "zombie" ? "Zombie Infection" : "Normal";
+    modeDisplay.innerText = data.currentMode === "zombie" ? "Zombie Infection" : "Classic Sandbox";
 });
 
 socket.on('timerUpdate', (secondsLeft) => { secondsSpan.innerText = secondsLeft; });
 socket.on('zombieModeStarted', (data) => { timerDisplay.style.display = "block"; secondsSpan.innerText = data.duration; });
-socket.on('zombieModeEnded', () => { alert("Match Finished! Next infection outbreak forming..."); });
+socket.on('zombieModeEnded', () => { alert("Match Concluded! Clearing vector fields..."); });
 
 socket.on('gameUpdate', (data) => {
     serverPlayers = data.players;
     serverFoods = data.foods;
-    modeDisplay.innerText = data.currentMode === "zombie" ? "Zombie Infection" : "Normal";
+    modeDisplay.innerText = data.currentMode === "zombie" ? "Zombie Outbreak" : "Classic Arena";
     
     if (data.currentMode === "zombie") {
         timerDisplay.style.display = "block";
@@ -400,19 +374,39 @@ socket.on('gameUpdate', (data) => {
 
     if (gameActive && serverPlayers[socket.id]) {
         let me = serverPlayers[socket.id];
-        camera.x = me.x - canvas.width / 2;
-        camera.y = me.y - canvas.height / 2;
+        // Smooth camera dampening calculations
+        camera.x += (me.x - canvas.width / 2 - camera.x) * 0.1;
+        camera.y += (me.y - canvas.height / 2 - camera.y) * 0.1;
         scoreElement.innerText = Math.floor(me.radius);
         updateLeaderboard();
     }
 });
 
-socket.on('died', () => { alert("YOU WERE CONSUMED!"); resetToLobby(); });
+socket.on('died', () => { alert("YOUR CELL WAS COMPLETELY CONSUMED!"); resetToLobby(); });
 
 window.addEventListener("mousemove", (e) => {
-    if (!gameActive || isTyping) return; // Prevent erratic tracking vectors while typing text
+    if (!gameActive || isTyping) return;
     socket.emit('updateInput', { mouseX: e.clientX - canvas.width / 2, mouseY: e.clientY - canvas.height / 2 });
 });
+
+// Premium Vector Rendering Implementations
+function drawBackgroundGrid() {
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.023)";
+    ctx.lineWidth = 1;
+    let gridSize = 100;
+    
+    let startX = Math.floor(camera.x / gridSize) * gridSize;
+    let endX = startX + canvas.width + gridSize;
+    let startY = Math.floor(camera.y / gridSize) * gridSize;
+    let endY = startY + canvas.height + gridSize;
+
+    for (let x = startX; x < endX; x += gridSize) {
+        ctx.beginPath(); ctx.moveTo(x, startY); ctx.lineTo(x, endY); ctx.stroke();
+    }
+    for (let y = startY; y < endY; y += gridSize) {
+        ctx.beginPath(); ctx.moveTo(startX, y); ctx.lineTo(endX, y); ctx.stroke();
+    }
+}
 
 function drawFoods(){
     serverFoods.forEach(food => {
@@ -424,33 +418,51 @@ function drawFoods(){
 function drawPlayers(){
     Object.keys(serverPlayers).forEach(id => {
         let p = serverPlayers[id];
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-        ctx.fillStyle = p.color; ctx.fill();
-
-        ctx.fillStyle = "white"; ctx.textBaseline = "middle"; ctx.textAlign = "center";
-        ctx.font = `bold ${Math.max(10, p.radius / 2)}px Arial`;
         
-        let label = p.isZombie ? `[🧟] ${p.name}` : p.name;
+        // 3D Spherical Volume Shading Emulation
+        ctx.save();
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = id === socket.id ? 25 : 12; // Extra neon glow filter applied to self cell
+        
+        let grad = ctx.createRadialGradient(p.x - p.radius/3, p.y - p.radius/3, p.radius * 0.1, p.x, p.y, p.radius);
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.2, p.color);
+        grad.addColorStop(1, '#000000');
+        
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fillStyle = grad; ctx.fill();
+        ctx.restore();
+
+        // Text Tag Render Settings
+        ctx.fillStyle = "white"; ctx.textBaseline = "middle"; ctx.textAlign = "center";
+        ctx.font = `bold ${Math.max(11, p.radius / 2.2)}px 'Segoe UI', Roboto, sans-serif`;
+        ctx.shadowColor = "black"; ctx.shadowBlur = 4;
+        
+        let label = p.isZombie ? `🧟 ${p.name}` : p.name;
         ctx.fillText(label, p.x, p.y);
+        ctx.shadowBlur = 0; // Clear stroke parameters safely
     });
 }
 
 function drawIndicators() {
     for (let i = indicators.length - 1; i >= 0; i--) {
         let ind = indicators[i];
-        ctx.save(); ctx.globalAlpha = ind.alpha; ctx.fillStyle = "#f1c40f"; ctx.font = "bold 24px Arial";
-        ctx.shadowColor = "black"; ctx.shadowBlur = 4; ctx.textAlign = "center";
+        ctx.save(); ctx.globalAlpha = ind.alpha; ctx.fillStyle = "#f1c40f"; ctx.font = "bold 26px Arial";
+        ctx.shadowColor = "black"; ctx.shadowBlur = 5; ctx.textAlign = "center";
         ctx.fillText(ind.text, ind.x, ind.y - ind.yOffset); ctx.restore();
-        ind.yOffset += 1.2; ind.alpha -= 0.02;  
+        ind.yOffset += 1.4; ind.alpha -= 0.018;  
         if (ind.alpha <= 0) indicators.splice(i, 1);
     }
 }
 
 function drawMinimap() {
     miniCtx.clearRect(0, 0, minimap.width, minimap.height);
+    // Draw boundary line box
+    miniCtx.strokeStyle = "rgba(255,255,255,0.05)"; miniCtx.strokeRect(0,0,minimap.width,minimap.height);
+    
     Object.keys(serverPlayers).forEach(id => {
         let p = serverPlayers[id];
-        miniCtx.fillStyle = (id === socket.id) ? "#00ff66" : (p.isZombie ? "#2ecc71" : "rgba(255, 50, 50, 0.8)");
+        miniCtx.fillStyle = (id === socket.id) ? "#00ffcc" : (p.isZombie ? "#2ecc71" : "#ff3366");
         miniCtx.beginPath(); miniCtx.arc((p.x / WORLD_WIDTH) * minimap.width, (p.y / WORLD_HEIGHT) * minimap.height, 3, 0, Math.PI * 2); miniCtx.fill();
     });
 }
@@ -458,10 +470,14 @@ function drawMinimap() {
 function updateLeaderboard() {
     const list = Object.values(serverPlayers).sort((a, b) => b.radius - a.radius);
     playersCount.innerText = list.length;
-    leaderboardDiv.innerHTML = `<b>Leaderboard</b><br>`;
-    list.slice(0, 10).forEach((p, index) => {
-        let style = p.id === socket.id ? 'color:#00ff66;font-weight:bold;' : '';
-        leaderboardDiv.innerHTML += `<span style="${style}">${index + 1}. ${p.name} (${Math.floor(p.radius)})</span><br>`;
+    lbContent.innerHTML = "";
+    list.slice(0, 5).forEach((p, index) => {
+        let activeStyle = p.id === socket.id ? 'color:var(--primary); font-weight:bold;' : '';
+        lbContent.innerHTML += `
+            <div class="lb-entry" style="${activeStyle}">
+                <span>${index + 1}. ${p.name}</span>
+                <span>${Math.floor(p.radius)}</span>
+            </div>`;
     });
 }
 
@@ -469,6 +485,7 @@ function gameLoop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (gameActive) {
         ctx.save(); ctx.translate(-camera.x, -camera.y);
+        drawBackgroundGrid();
         drawFoods(); drawPlayers(); drawIndicators(); ctx.restore();
         drawMinimap();
     }

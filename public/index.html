@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dark Agar Online</title>
+<script src="/socket.io/socket.io.js"></script>
+
+<style>
+*{ margin:0; padding:0; box-sizing:border-box; }
+html, body{ width:100%; height:100%; overflow:hidden; background:#050505; font-family:Arial,sans-serif; }
+
+.screen-overlay {
+    position:fixed;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background: radial-gradient(circle, #111, #050505);
+    z-index:9999;
+}
+.box-layout {
+    width:400px;
+    background: rgba(20,20,20,0.95);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius:20px;
+    padding:25px;
+    color:white;
+    text-align:center;
+    backdrop-filter:blur(12px);
+    box-shadow: 0 0 40px rgba(0,0,0,0.7);
+}
+h1{ margin-bottom:15px; font-size:32px; letter-spacing: 1px; color: #fff; }
+input{
+    width:100%;
+    padding:14px;
+    border:none;
+    border-radius:12px;
+    background:#111;
+    color:white;
+    margin-bottom:15px;
+    outline:none;
+    border: 1px solid rgba(255,255,255,0.05);
+}
+button{
+    width:100%;
+    padding:14px;
+    border:none;
+    border-radius:12px;
+    background:#3498db;
+    color:white;
+    font-size:16px;
+    font-weight: bold;
+    cursor:pointer;
+    transition:0.2s;
+    margin-bottom: 10px;
+}
+button:hover{ transform:scale(1.02); filter: brightness(1.1); }
+.secondary-btn { background: #2c3e50; }
+.zombie-btn { background: #2ecc71; color: #000; }
+.shop-btn { background: #e67e22; }
+
+/* In-game HUD panels */
+#ui{
+    position:fixed;
+    top:15px;
+    left:15px;
+    z-index:100;
+    background: rgba(15,15,15,0.85);
+    color:white;
+    padding:15px;
+    border-radius:16px;
+    border: 1px solid rgba(255,255,255,0.08);
+    min-width:220px;
+    backdrop-filter:blur(10px);
+}
+.stat{ margin-bottom:8px; color:#ddd; }
+#timerDisplay { display: none; color: #e74c3c; font-weight: bold; font-size: 18px; margin-top: 5px; }
+#leaderboard{ margin-top:12px; padding-top:10px; border-top: 1px solid rgba(255,255,255,0.08); color:#bbb; }
+
+/* Clean floating Exit button layout */
+#exitBtn {
+    position: fixed;
+    top: 15px;
+    right: 20px;
+    z-index: 101;
+    width: auto;
+    padding: 10px 20px;
+    background: #e74c3c;
+    display: none; 
+}
+
+#minimap {
+    position: fixed; bottom: 20px; right: 20px;
+    width: 200px; height: 200px; z-index: 1000; 
+    border-radius: 16px; background: #111;
+    border: 2px solid rgba(255, 255, 255, 0.15);
+}
+canvas#gameCanvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; display: block; z-index: 1; }
+
+.shop-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; max-height: 180px; overflow-y: auto; padding: 5px; }
+.shop-item { background: #111; border: 2px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 10px 5px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.shop-item.selected { border-color: #2ecc71; }
+.shop-circle { width: 30px; height: 30px; border-radius: 50%; }
+.price-tag { font-size: 11px; color: #f1c40f; font-weight: bold; }
+.currency-display { font-size: 16px; color: #f1c40f; margin-bottom: 15px; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<button id="exitBtn">EXIT MATCH</button>
+
+<div id="menu" class="screen-overlay">
+    <div class="box-layout">
+        <h1>Dark Agar Online</h1>
+        <div class="currency-display">🪙 Coins: <span class="coin-count">0</span></div>
+        <input id="nameInput" placeholder="Enter Name" maxlength="10" />
+        <button id="playBtn">PLAY NORMAL LOBBY</button>
+        <button id="zombieBtn" class="zombie-btn">ENTER ZOMBIE LOBBY</button>
+        <button id="openShopBtn" class="secondary-btn shop-btn">SKIN SHOP</button>
+    </div>
+</div>
+
+<div id="shopScreen" class="screen-overlay" style="display: none;">
+    <div class="box-layout">
+        <h1>Skin Shop</h1>
+        <div class="currency-display">Your Coins: 🪙<span class="coin-count">0</span></div>
+        <div class="shop-grid" id="shopGrid"></div>
+        <button id="closeShopBtn" class="secondary-btn">BACK TO LOBBY</button>
+    </div>
+</div>
+
+<div id="ui" style="display:none;">
+    <div class="stat">Room: <span id="modeDisplay" style="text-transform:uppercase; font-weight:bold;">Normal</span></div>
+    <div id="timerDisplay">Time Left: <span id="seconds">120</span>s</div>
+    <div class="stat">Mass: <span id="score">0</span></div>
+    <div class="stat">Lobby Players: <span id="playersCount">0</span></div>
+    <div id="leaderboard"><b>Leaderboard</b></div>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+<canvas id="minimap" width="200" height="200" style="display:none;"></canvas>
+
+<script>
+const socket = io();
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const minimap = document.getElementById("minimap");
+const miniCtx = minimap.getContext("2d");
+
+const menu = document.getElementById("menu");
+const shopScreen = document.getElementById("shopScreen");
+const playBtn = document.getElementById("playBtn");
+const zombieBtn = document.getElementById("zombieBtn");
+const exitBtn = document.getElementById("exitBtn");
+const nameInput = document.getElementById("nameInput");
+const openShopBtn = document.getElementById("openShopBtn");
+const closeShopBtn = document.getElementById("closeShopBtn");
+const shopGrid = document.getElementById("shopGrid");
+
+const scoreElement = document.getElementById("score");
+const playersCount = document.getElementById("playersCount");
+const leaderboardDiv = document.getElementById("leaderboard");
+const modeDisplay = document.getElementById("modeDisplay");
+const timerDisplay = document.getElementById("timerDisplay");
+const secondsSpan = document.getElementById("seconds");
+const uiPanel = document.getElementById("ui");
+
+let coins = parseInt(localStorage.getItem("agar_coins")) || 0;
+let unlockedSkins = JSON.parse(localStorage.getItem("agar_skins")) || ["#3498db"]; 
+let selectedSkin = localStorage.getItem("agar_selected_skin") || "#3498db";
+
+// Memory storage for small local floating notifications
+let indicators = [];
+
+const availableSkins = [
+    { color: "#3498db", price: 0, name: "Default" },
+    { color: "#ff3300", price: 15, name: "Crimson" },
+    { color: "#00ff66", price: 25, name: "Lime" },
+    { color: "#ffd700", price: 40, name: "Gold" },
+    { color: "#ff00ff", price: 50, name: "Nebula" }
+];
+
+function updateCoinDisplays() {
+    document.querySelectorAll(".coin-count").forEach(el => el.innerText = coins);
+}
+updateCoinDisplays();
+
+socket.on('earnCoins', (amount) => {
+    coins += amount;
+    localStorage.setItem("agar_coins", coins);
+    updateCoinDisplays();
+});
+
+// Captures a text signal and pins it onto the viewport vector grid map
+socket.on('killIndicator', (data) => {
+    indicators.push({
+        x: data.x,
+        y: data.y,
+        text: data.text,
+        alpha: 1.0,
+        yOffset: 0
+    });
+});
+
+function renderShop() {
+    shopGrid.innerHTML = "";
+    availableSkins.forEach(skin => {
+        const isUnlocked = unlockedSkins.includes(skin.color);
+        const isSelected = selectedSkin === skin.color;
+        const item = document.createElement("div");
+        item.className = `shop-item ${isSelected ? 'selected' : ''}`;
+        item.innerHTML = `
+            <div class="shop-circle" style="background: ${skin.color}"></div>
+            <div style="font-size:12px;">${skin.name}</div>
+            <div class="price-tag">${isUnlocked ? (isSelected ? 'READY' : 'EQUIP') : '🪙' + skin.price}</div>
+        `;
+        item.onclick = () => {
+            if (isUnlocked) {
+                selectedSkin = skin.color;
+                localStorage.setItem("agar_selected_skin", selectedSkin);
+                renderShop();
+            } else if (coins >= skin.price) {
+                coins -= skin.price;
+                unlockedSkins.push(skin.color);
+                localStorage.setItem("agar_coins", coins);
+                localStorage.setItem("agar_skins", JSON.stringify(unlockedSkins));
+                selectedSkin = skin.color;
+                localStorage.setItem("agar_selected_skin", selectedSkin);
+                updateCoinDisplays();
+                renderShop();
+            }
+        };
+        shopGrid.appendChild(item);
+    });
+}
+
+openShopBtn.onclick = () => { renderShop(); shopScreen.style.display = "flex"; };
+closeShopBtn.onclick = () => { shopScreen.style.display = "none"; };
+
+let WORLD_WIDTH = 5000;
+let WORLD_HEIGHT = 5000;
+const camera = { x: 0, y: 0 };
+let serverPlayers = {};
+let serverFoods = [];
+let gameActive = false;
+
+function resizeCanvas(){ canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
+
+playBtn.onclick = () => { join("normal"); };
+zombieBtn.onclick = () => { join("zombie"); };
+
+exitBtn.onclick = () => { resetToLobby(); };
+
+function join(targetRoom) {
+    let name = nameInput.value || "Guest";
+    socket.emit('joinGame', { name: name, color: selectedSkin, room: targetRoom });
+    menu.style.display = "none";
+    uiPanel.style.display = "block";
+    minimap.style.display = "block";
+    exitBtn.style.display = "block";
+    gameActive = true;
+}
+
+function resetToLobby() {
+    socket.emit('leaveGame');
+    gameActive = false;
+    uiPanel.style.display = "none";
+    minimap.style.display = "none";
+    exitBtn.style.display = "none";
+    menu.style.display = "flex";
+    serverPlayers = {};
+    indicators = [];
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+socket.on('init', (data) => {
+    WORLD_WIDTH = data.worldWidth;
+    WORLD_HEIGHT = data.worldHeight;
+    modeDisplay.innerText = data.currentMode === "zombie" ? "Zombie Infection" : "Normal";
+});
+
+socket.on('timerUpdate', (secondsLeft) => {
+    secondsSpan.innerText = secondsLeft;
+});
+
+socket.on('zombieModeStarted', (data) => {
+    timerDisplay.style.display = "block";
+    secondsSpan.innerText = data.duration;
+});
+
+socket.on('zombieModeEnded', () => {
+    alert("Match Finished! Next infection outbreak forming...");
+});
+
+socket.on('gameUpdate', (data) => {
+    serverPlayers = data.players;
+    serverFoods = data.foods;
+    modeDisplay.innerText = data.currentMode === "zombie" ? "Zombie Infection" : "Normal";
+    
+    if (data.currentMode === "zombie") {
+        timerDisplay.style.display = "block";
+        secondsSpan.innerText = data.zombieTimer;
+    } else {
+        timerDisplay.style.display = "none";
+    }
+
+    if (gameActive && serverPlayers[socket.id]) {
+        let me = serverPlayers[socket.id];
+        camera.x = me.x - canvas.width / 2;
+        camera.y = me.y - canvas.height / 2;
+        scoreElement.innerText = Math.floor(me.radius);
+        updateLeaderboard();
+    }
+});
+
+socket.on('died', () => {
+    alert("YOU WERE CONSUMED!");
+    resetToLobby();
+});
+
+window.addEventListener("mousemove", (e) => {
+    if (!gameActive) return;
+    socket.emit('updateInput', { mouseX: e.clientX - canvas.width / 2, mouseY: e.clientY - canvas.height / 2 });
+});
+
+function drawFoods(){
+    serverFoods.forEach(food => {
+        ctx.beginPath(); ctx.arc(food.x, food.y, food.radius, 0, Math.PI * 2);
+        ctx.fillStyle = food.color; ctx.fill();
+    });
+}
+
+function drawPlayers(){
+    Object.keys(serverPlayers).forEach(id => {
+        let p = serverPlayers[id];
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fillStyle = p.color; ctx.fill();
+
+        ctx.fillStyle = "white"; ctx.textBaseline = "middle"; ctx.textAlign = "center";
+        ctx.font = `bold ${Math.max(10, p.radius / 2)}px Arial`;
+        
+        let label = p.isZombie ? `[🧟] ${p.name}` : p.name;
+        ctx.fillText(label, p.x, p.y);
+    });
+}
+
+// Renders and updates small text counters that float upwards and fade out safely
+function drawIndicators() {
+    for (let i = indicators.length - 1; i >= 0; i--) {
+        let ind = indicators[i];
+        ctx.save();
+        ctx.globalAlpha = ind.alpha;
+        ctx.fillStyle = "#f1c40f"; 
+        ctx.font = "bold 24px Arial";
+        ctx.shadowColor = "black";
+        ctx.shadowBlur = 4;
+        ctx.textAlign = "center";
+        ctx.fillText(ind.text, ind.x, ind.y - ind.yOffset);
+        ctx.restore();
+
+        ind.yOffset += 1.2; 
+        ind.alpha -= 0.02;  
+
+        if (ind.alpha <= 0) {
+            indicators.splice(i, 1);
+        }
+    }
+}
+
+function drawMinimap() {
+    miniCtx.clearRect(0, 0, minimap.width, minimap.height);
+    Object.keys(serverPlayers).forEach(id => {
+        let p = serverPlayers[id];
+        miniCtx.fillStyle = (id === socket.id) ? "#00ff66" : (p.isZombie ? "#2ecc71" : "rgba(255, 50, 50, 0.8)");
+        miniCtx.beginPath(); miniCtx.arc((p.x / WORLD_WIDTH) * minimap.width, (p.y / WORLD_HEIGHT) * minimap.height, 3, 0, Math.PI * 2); miniCtx.fill();
+    });
+}
+
+function updateLeaderboard() {
+    const list = Object.values(serverPlayers).sort((a, b) => b.radius - a.radius);
+    playersCount.innerText = list.length;
+    leaderboardDiv.innerHTML = `<b>Leaderboard</b><br>`;
+    list.slice(0, 10).forEach((p, index) => {
+        let style = p.id === socket.id ? 'color:#00ff66;font-weight:bold;' : '';
+        leaderboardDiv.innerHTML += `<span style="${style}">${index + 1}. ${p.name} (${Math.floor(p.radius)})</span><br>`;
+    });
+}
+
+function gameLoop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (gameActive) {
+        ctx.save(); 
+        ctx.translate(-camera.x, -camera.y);
+        drawFoods(); 
+        drawPlayers(); 
+        drawIndicators(); 
+        ctx.restore();
+        drawMinimap();
+    }
+    requestAnimationFrame(gameLoop);
+}
+gameLoop();
+</script>
+</body>
+</html>

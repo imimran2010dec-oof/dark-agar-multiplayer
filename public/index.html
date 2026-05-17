@@ -39,7 +39,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #020205; c
     border-radius: 24px;
     padding: 35px;
     text-align: center;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 40px rgba(255, 255, 255, 0.02);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
 }
 
 h1 { font-size: 38px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 5px; background: linear-gradient(135deg, #fff 30%, #a5b4fc 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
@@ -55,9 +55,8 @@ input {
     outline: none;
     border: 1px solid var(--border);
     font-size: 16px;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
-input:focus { border-color: var(--primary); background: rgba(255, 255, 255, 0.06); box-shadow: var(--glow); }
+input:focus { border-color: var(--primary); background: rgba(255, 255, 255, 0.06); }
 
 button {
     width: 100%;
@@ -71,23 +70,19 @@ button {
     cursor: pointer;
     transition: all 0.2s ease;
     margin-bottom: 12px;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
 }
-button:hover { transform: translateY(-2px); filter: brightness(1.1); box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4); }
-button:active { transform: translateY(0); }
+button:hover { transform: translateY(-2px); filter: brightness(1.1); }
 
-.zombie-btn { background: linear-gradient(135deg, #059669, #047857); box-shadow: 0 4px 12px rgba(5, 150, 105, 0.2); }
-.zombie-btn:hover { box-shadow: 0 6px 20px rgba(5, 150, 105, 0.4); }
-.shop-btn { background: linear-gradient(135deg, #d97706, #b45309); box-shadow: 0 4px 12px rgba(217, 119, 6, 0.2); }
-.shop-btn:hover { box-shadow: 0 6px 20px rgba(217, 119, 6, 0.4); }
-.secondary-btn { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); color: #94a3b8; box-shadow: none; }
-.secondary-btn:hover { background: rgba(255, 255, 255, 0.08); color: #fff; box-shadow: none; }
+.zombie-btn { background: linear-gradient(135deg, #059669, #047857); }
+.shop-btn { background: linear-gradient(135deg, #d97706, #b45309); }
+.secondary-btn { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); color: #94a3b8; }
+.secondary-btn:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
 
 #ui {
     position: fixed; top: 20px; left: 20px; z-index: 100;
     background: var(--panel-bg); border: 1px solid var(--border);
     padding: 20px; border-radius: 20px; min-width: 240px;
-    backdrop-filter: blur(10px); box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    backdrop-filter: blur(10px);
 }
 .stat { margin-bottom: 10px; font-size: 14px; color: #94a3b8; display: flex; justify-content: space-between; align-items: center; }
 .stat span { color: #fff; font-weight: 600; }
@@ -100,17 +95,15 @@ button:active { transform: translateY(0); }
 #exitBtn {
     position: fixed; top: 20px; right: 20px; z-index: 101; width: auto;
     padding: 12px 24px; background: linear-gradient(135deg, #dc2626, #b91c1c);
-    border-radius: 12px; display: none; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2);
+    border-radius: 12px; display: none;
 }
-#exitBtn:hover { box-shadow: 0 6px 20px rgba(220, 38, 38, 0.4); }
 
 #chatWrapper { position: fixed; bottom: 20px; left: 20px; width: 340px; z-index: 1005; display: none; pointer-events: none; }
 #chatLog { width: 100%; max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; pointer-events: none; }
 #chatLog::-webkit-scrollbar { width: 0px; }
-.chat-line { background: rgba(10, 10, 15, 0.65); border: 1px solid rgba(255,255,255,0.03); padding: 6px 12px; border-radius: 10px; color: #e2e8f0; width: fit-content; max-width: 100%; word-break: break-all; font-size: 13px; backdrop-filter: blur(4px); box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+.chat-line { background: rgba(10, 10, 15, 0.65); border: 1px solid rgba(255,255,255,0.03); padding: 6px 12px; border-radius: 10px; color: #e2e8f0; width: fit-content; max-width: 100%; word-break: break-all; font-size: 13px; backdrop-filter: blur(4px); }
 .chat-line.zombie-msg { border-color: rgba(46, 204, 113, 0.2); background: rgba(10, 35, 20, 0.7); }
-#chatInput { width: 100%; padding: 12px 16px; border-radius: 12px; background: rgba(5, 5, 10, 0.85); border: 1px solid var(--border); color: #fff; font-size: 14px; outline: none; pointer-events: auto; display: none; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-#chatInput:focus { border-color: rgba(255,255,255,0.2); }
+#chatInput { width: 100%; padding: 12px 16px; border-radius: 12px; background: rgba(5, 5, 10, 0.85); border: 1px solid var(--border); color: #fff; font-size: 14px; outline: none; pointer-events: auto; display: none; }
 
 .currency-display { font-size: 18px; color: var(--shop); font-weight: 700; margin-bottom: 20px; letter-spacing: 0.5px; }
 .shop-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 25px; max-height: 220px; overflow-y: auto; padding: 4px; }
@@ -118,12 +111,12 @@ button:active { transform: translateY(0); }
 .shop-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
 .shop-item { background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 16px; padding: 15px 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 10px; transition: all 0.2s ease; }
 .shop-item:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.15); transform: translateY(-2px); }
-.shop-item.selected { border-color: var(--primary); background: rgba(52, 152, 219, 0.08); box-shadow: inset 0 0 12px rgba(52,152,219,0.15); }
-.shop-circle { width: 36px; height: 36px; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+.shop-item.selected { border-color: var(--primary); background: rgba(52, 152, 219, 0.08); }
+.shop-circle { width: 36px; height: 36px; border-radius: 50%; }
 .price-tag { font-size: 12px; color: #94a3b8; font-weight: 600; background: rgba(255,255,255,0.04); padding: 2px 8px; border-radius: 20px; }
 .shop-item.selected .price-tag { color: var(--primary); background: rgba(52, 152, 219, 0.15); }
 
-#minimap { position: fixed; bottom: 20px; right: 20px; width: 180px; height: 180px; z-index: 1000; border-radius: 20px; background: var(--panel-bg); border: 1px solid var(--border); backdrop-filter: blur(5px); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+#minimap { position: fixed; bottom: 20px; right: 20px; width: 180px; height: 180px; z-index: 1000; border-radius: 20px; background: var(--panel-bg); border: 1px solid var(--border); backdrop-filter: blur(5px); }
 canvas#gameCanvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; display: block; z-index: 1; }
 </style>
 </head>
@@ -145,7 +138,7 @@ canvas#gameCanvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100v
 
 <div id="shopScreen" class="screen-overlay" style="display: none;">
     <div class="box-layout">
-        <h1>ARENA APPAREL</h1>
+        <h1>DARK SKIN SHOP</h1>
         <div class="subtitle">Unlock Vector Skins</div>
         <div class="currency-display">BALANCE: 🪙 <span class="coin-count">0</span></div>
         <div class="shop-grid" id="shopGrid"></div>
@@ -286,7 +279,6 @@ let WORLD_HEIGHT = 5000;
 const camera = { x: 0, y: 0 };
 let serverPlayers = {};
 let serverFoods = [];
-let serverSpikes = []; // Stores spatial layout spikes array mapping data
 let gameActive = false;
 
 function resizeCanvas(){ canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
@@ -318,7 +310,6 @@ function resetToLobby() {
     if(isTyping) hideChatInput();
     menu.style.display = "flex"; setTimeout(() => menu.style.opacity = 1, 50);
     serverPlayers = {};
-    serverSpikes = [];
     indicators = [];
     chatLog.innerHTML = "";
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -354,12 +345,11 @@ socket.on('init', (data) => {
 
 socket.on('timerUpdate', (secondsLeft) => { secondsSpan.innerText = secondsLeft; });
 socket.on('zombieModeStarted', (data) => { timerDisplay.style.display = "block"; secondsSpan.innerText = data.duration; });
-socket.on('zombieModeEnded', () => { alert("Match Concluded! Clearing vector fields..."); });
+socket.on('zombieModeEnded', () => { console.log("Match concluded."); });
 
 socket.on('gameUpdate', (data) => {
     serverPlayers = data.players;
     serverFoods = data.foods;
-    serverSpikes = data.spikes || []; // Synchronize local cache arrays mapping
     modeDisplay.innerText = data.currentMode === "zombie" ? "Zombie Outbreak" : "Classic Arena";
     
     if (data.currentMode === "zombie") {
@@ -410,62 +400,12 @@ function drawFoods(){
     });
 }
 
-// PREMIUM NEON JAGGED HAZARD SPIKE ENGINE RENDERING
-function drawSpikes() {
-    serverSpikes.forEach(spike => {
-        ctx.save();
-        ctx.shadowColor = "#9b59b6";
-        ctx.shadowBlur = 15;
-
-        let spikesCount = 16; // Number of points on spike wheel
-        let outerRad = spike.radius;
-        let innerRad = spike.radius * 0.72;
-        let rot = Math.PI / 2 * 3;
-        let x = spike.x;
-        let y = spike.y;
-        let step = Math.PI / spikesCount;
-
-        ctx.beginPath();
-        ctx.moveTo(spike.x, spike.y - outerRad);
-
-        for (let i = 0; i < spikesCount; i++) {
-            x = spike.x + Math.cos(rot) * outerRad;
-            y = spike.y + Math.sin(rot) * outerRad;
-            ctx.lineTo(x, y);
-            rot += step;
-
-            x = spike.x + Math.cos(rot) * innerRad;
-            y = spike.y + Math.sin(rot) * innerRad;
-            ctx.lineTo(x, y);
-            rot += step;
-        }
-
-        ctx.lineTo(spike.x, spike.y - outerRad);
-        ctx.closePath();
-
-        // High contrast radial glass aesthetic interior
-        let grad = ctx.createRadialGradient(spike.x, spike.y, innerRad * 0.2, spike.x, spike.y, outerRad);
-        grad.addColorStop(0, '#2c1a3a');
-        grad.addColorStop(0.7, '#8e44ad');
-        grad.addColorStop(1, '#1a0826');
-
-        ctx.fillStyle = grad;
-        ctx.fill();
-
-        ctx.strokeStyle = "#be2edd";
-        ctx.lineWidth = 3;
-        ctx.stroke();
-        ctx.restore();
-    });
-}
-
 function drawPlayers(){
     Object.keys(serverPlayers).forEach(id => {
         let p = serverPlayers[id];
         
         ctx.save();
-        ctx.shadowColor = p.color;
-        ctx.shadowBlur = id === socket.id ? 25 : 12; 
+        // Bugfix: shadowBlur completely removed from drawing pipeline to prevent FPS lag
         
         let grad = ctx.createRadialGradient(p.x - p.radius/3, p.y - p.radius/3, p.radius * 0.1, p.x, p.y, p.radius);
         grad.addColorStop(0, '#ffffff');
@@ -478,11 +418,9 @@ function drawPlayers(){
 
         ctx.fillStyle = "white"; ctx.textBaseline = "middle"; ctx.textAlign = "center";
         ctx.font = `bold ${Math.max(11, p.radius / 2.2)}px 'Segoe UI', Roboto, sans-serif`;
-        ctx.shadowColor = "black"; ctx.shadowBlur = 4;
         
-        let label = p.isZombie ? `默默 ${p.name}` : p.name;
+        let label = p.isZombie ? `🧟 ${p.name}` : p.name;
         ctx.fillText(label, p.x, p.y);
-        ctx.shadowBlur = 0; 
     });
 }
 
@@ -490,10 +428,9 @@ function drawIndicators() {
     for (let i = indicators.length - 1; i >= 0; i--) {
         let ind = indicators[i];
         ctx.save(); ctx.globalAlpha = ind.alpha; 
-        // Color drop flag switch parameters if it is an explosive drop indicator
-        ctx.fillStyle = ind.text.includes("MASS") ? "#e74c3c" : "#f1c40f"; 
+        ctx.fillStyle = "#f1c40f"; 
         ctx.font = "bold 26px Arial";
-        ctx.shadowColor = "black"; ctx.shadowBlur = 5; ctx.textAlign = "center";
+        ctx.textAlign = "center";
         ctx.fillText(ind.text, ind.x, ind.y - ind.yOffset); ctx.restore();
         ind.yOffset += 1.4; ind.alpha -= 0.018;  
         if (ind.alpha <= 0) indicators.splice(i, 1);
@@ -503,12 +440,6 @@ function drawIndicators() {
 function drawMinimap() {
     miniCtx.clearRect(0, 0, minimap.width, minimap.height);
     miniCtx.strokeStyle = "rgba(255,255,255,0.05)"; miniCtx.strokeRect(0,0,minimap.width,minimap.height);
-    
-    // Render spikes as small dark purple indicators on map vectors
-    serverSpikes.forEach(spike => {
-        miniCtx.fillStyle = "rgba(142, 68, 173, 0.4)";
-        miniCtx.beginPath(); miniCtx.arc((spike.x / WORLD_WIDTH) * minimap.width, (spike.y / WORLD_HEIGHT) * minimap.height, 2, 0, Math.PI * 2); miniCtx.fill();
-    });
 
     Object.keys(serverPlayers).forEach(id => {
         let p = serverPlayers[id];
@@ -537,7 +468,6 @@ function gameLoop() {
         ctx.save(); ctx.translate(-camera.x, -camera.y);
         drawBackgroundGrid();
         drawFoods(); 
-        drawSpikes(); // Draw hazard lines across surface coordinate blocks
         drawPlayers(); 
         drawIndicators(); 
         ctx.restore();

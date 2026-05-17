@@ -20,7 +20,6 @@
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; user-select: none; }
 html, body { width: 100%; height: 100%; overflow: hidden; background: #020205; color: #fff; }
 
-/* Premium Glassmorphism Overlays */
 .screen-overlay {
     position: fixed;
     inset: 0;
@@ -84,7 +83,6 @@ button:active { transform: translateY(0); }
 .secondary-btn { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); color: #94a3b8; box-shadow: none; }
 .secondary-btn:hover { background: rgba(255, 255, 255, 0.08); color: #fff; box-shadow: none; }
 
-/* HUD Modules */
 #ui {
     position: fixed; top: 20px; left: 20px; z-index: 100;
     background: var(--panel-bg); border: 1px solid var(--border);
@@ -106,7 +104,6 @@ button:active { transform: translateY(0); }
 }
 #exitBtn:hover { box-shadow: 0 6px 20px rgba(220, 38, 38, 0.4); }
 
-/* Premium Floating Chat Window */
 #chatWrapper { position: fixed; bottom: 20px; left: 20px; width: 340px; z-index: 1005; display: none; pointer-events: none; }
 #chatLog { width: 100%; max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; pointer-events: none; }
 #chatLog::-webkit-scrollbar { width: 0px; }
@@ -115,7 +112,6 @@ button:active { transform: translateY(0); }
 #chatInput { width: 100%; padding: 12px 16px; border-radius: 12px; background: rgba(5, 5, 10, 0.85); border: 1px solid var(--border); color: #fff; font-size: 14px; outline: none; pointer-events: auto; display: none; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
 #chatInput:focus { border-color: rgba(255,255,255,0.2); }
 
-/* Shop Module */
 .currency-display { font-size: 18px; color: var(--shop); font-weight: 700; margin-bottom: 20px; letter-spacing: 0.5px; }
 .shop-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 25px; max-height: 220px; overflow-y: auto; padding: 4px; }
 .shop-grid::-webkit-scrollbar { width: 4px; }
@@ -183,7 +179,6 @@ const ctx = canvas.getContext("2d");
 const minimap = document.getElementById("minimap");
 const miniCtx = minimap.getContext("2d");
 
-// Element Handles
 const menu = document.getElementById("menu");
 const shopScreen = document.getElementById("shopScreen");
 const playBtn = document.getElementById("playBtn");
@@ -211,7 +206,6 @@ let selectedSkin = localStorage.getItem("agar_selected_skin") || "#3498db";
 let indicators = [];
 let isTyping = false;
 
-// Premium Custom Skin Matrix Layout Configurations
 const availableSkins = [
     { color: "#3498db", price: 0, name: "Neon Blue" },
     { color: "#ff3366", price: 15, name: "Hot Coral" },
@@ -292,6 +286,7 @@ let WORLD_HEIGHT = 5000;
 const camera = { x: 0, y: 0 };
 let serverPlayers = {};
 let serverFoods = [];
+let serverSpikes = []; // Stores spatial layout spikes array mapping data
 let gameActive = false;
 
 function resizeCanvas(){ canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
@@ -323,6 +318,7 @@ function resetToLobby() {
     if(isTyping) hideChatInput();
     menu.style.display = "flex"; setTimeout(() => menu.style.opacity = 1, 50);
     serverPlayers = {};
+    serverSpikes = [];
     indicators = [];
     chatLog.innerHTML = "";
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -363,6 +359,7 @@ socket.on('zombieModeEnded', () => { alert("Match Concluded! Clearing vector fie
 socket.on('gameUpdate', (data) => {
     serverPlayers = data.players;
     serverFoods = data.foods;
+    serverSpikes = data.spikes || []; // Synchronize local cache arrays mapping
     modeDisplay.innerText = data.currentMode === "zombie" ? "Zombie Outbreak" : "Classic Arena";
     
     if (data.currentMode === "zombie") {
@@ -374,7 +371,6 @@ socket.on('gameUpdate', (data) => {
 
     if (gameActive && serverPlayers[socket.id]) {
         let me = serverPlayers[socket.id];
-        // Smooth camera dampening calculations
         camera.x += (me.x - canvas.width / 2 - camera.x) * 0.1;
         camera.y += (me.y - canvas.height / 2 - camera.y) * 0.1;
         scoreElement.innerText = Math.floor(me.radius);
@@ -389,7 +385,6 @@ window.addEventListener("mousemove", (e) => {
     socket.emit('updateInput', { mouseX: e.clientX - canvas.width / 2, mouseY: e.clientY - canvas.height / 2 });
 });
 
-// Premium Vector Rendering Implementations
 function drawBackgroundGrid() {
     ctx.strokeStyle = "rgba(255, 255, 255, 0.023)";
     ctx.lineWidth = 1;
@@ -415,14 +410,62 @@ function drawFoods(){
     });
 }
 
+// PREMIUM NEON JAGGED HAZARD SPIKE ENGINE RENDERING
+function drawSpikes() {
+    serverSpikes.forEach(spike => {
+        ctx.save();
+        ctx.shadowColor = "#9b59b6";
+        ctx.shadowBlur = 15;
+
+        let spikesCount = 16; // Number of points on spike wheel
+        let outerRad = spike.radius;
+        let innerRad = spike.radius * 0.72;
+        let rot = Math.PI / 2 * 3;
+        let x = spike.x;
+        let y = spike.y;
+        let step = Math.PI / spikesCount;
+
+        ctx.beginPath();
+        ctx.moveTo(spike.x, spike.y - outerRad);
+
+        for (let i = 0; i < spikesCount; i++) {
+            x = spike.x + Math.cos(rot) * outerRad;
+            y = spike.y + Math.sin(rot) * outerRad;
+            ctx.lineTo(x, y);
+            rot += step;
+
+            x = spike.x + Math.cos(rot) * innerRad;
+            y = spike.y + Math.sin(rot) * innerRad;
+            ctx.lineTo(x, y);
+            rot += step;
+        }
+
+        ctx.lineTo(spike.x, spike.y - outerRad);
+        ctx.closePath();
+
+        // High contrast radial glass aesthetic interior
+        let grad = ctx.createRadialGradient(spike.x, spike.y, innerRad * 0.2, spike.x, spike.y, outerRad);
+        grad.addColorStop(0, '#2c1a3a');
+        grad.addColorStop(0.7, '#8e44ad');
+        grad.addColorStop(1, '#1a0826');
+
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        ctx.strokeStyle = "#be2edd";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.restore();
+    });
+}
+
 function drawPlayers(){
     Object.keys(serverPlayers).forEach(id => {
         let p = serverPlayers[id];
         
-        // 3D Spherical Volume Shading Emulation
         ctx.save();
         ctx.shadowColor = p.color;
-        ctx.shadowBlur = id === socket.id ? 25 : 12; // Extra neon glow filter applied to self cell
+        ctx.shadowBlur = id === socket.id ? 25 : 12; 
         
         let grad = ctx.createRadialGradient(p.x - p.radius/3, p.y - p.radius/3, p.radius * 0.1, p.x, p.y, p.radius);
         grad.addColorStop(0, '#ffffff');
@@ -433,21 +476,23 @@ function drawPlayers(){
         ctx.fillStyle = grad; ctx.fill();
         ctx.restore();
 
-        // Text Tag Render Settings
         ctx.fillStyle = "white"; ctx.textBaseline = "middle"; ctx.textAlign = "center";
         ctx.font = `bold ${Math.max(11, p.radius / 2.2)}px 'Segoe UI', Roboto, sans-serif`;
         ctx.shadowColor = "black"; ctx.shadowBlur = 4;
         
-        let label = p.isZombie ? `🧟 ${p.name}` : p.name;
+        let label = p.isZombie ? `默默 ${p.name}` : p.name;
         ctx.fillText(label, p.x, p.y);
-        ctx.shadowBlur = 0; // Clear stroke parameters safely
+        ctx.shadowBlur = 0; 
     });
 }
 
 function drawIndicators() {
     for (let i = indicators.length - 1; i >= 0; i--) {
         let ind = indicators[i];
-        ctx.save(); ctx.globalAlpha = ind.alpha; ctx.fillStyle = "#f1c40f"; ctx.font = "bold 26px Arial";
+        ctx.save(); ctx.globalAlpha = ind.alpha; 
+        // Color drop flag switch parameters if it is an explosive drop indicator
+        ctx.fillStyle = ind.text.includes("MASS") ? "#e74c3c" : "#f1c40f"; 
+        ctx.font = "bold 26px Arial";
         ctx.shadowColor = "black"; ctx.shadowBlur = 5; ctx.textAlign = "center";
         ctx.fillText(ind.text, ind.x, ind.y - ind.yOffset); ctx.restore();
         ind.yOffset += 1.4; ind.alpha -= 0.018;  
@@ -457,9 +502,14 @@ function drawIndicators() {
 
 function drawMinimap() {
     miniCtx.clearRect(0, 0, minimap.width, minimap.height);
-    // Draw boundary line box
     miniCtx.strokeStyle = "rgba(255,255,255,0.05)"; miniCtx.strokeRect(0,0,minimap.width,minimap.height);
     
+    // Render spikes as small dark purple indicators on map vectors
+    serverSpikes.forEach(spike => {
+        miniCtx.fillStyle = "rgba(142, 68, 173, 0.4)";
+        miniCtx.beginPath(); miniCtx.arc((spike.x / WORLD_WIDTH) * minimap.width, (spike.y / WORLD_HEIGHT) * minimap.height, 2, 0, Math.PI * 2); miniCtx.fill();
+    });
+
     Object.keys(serverPlayers).forEach(id => {
         let p = serverPlayers[id];
         miniCtx.fillStyle = (id === socket.id) ? "#00ffcc" : (p.isZombie ? "#2ecc71" : "#ff3366");
@@ -486,7 +536,11 @@ function gameLoop() {
     if (gameActive) {
         ctx.save(); ctx.translate(-camera.x, -camera.y);
         drawBackgroundGrid();
-        drawFoods(); drawPlayers(); drawIndicators(); ctx.restore();
+        drawFoods(); 
+        drawSpikes(); // Draw hazard lines across surface coordinate blocks
+        drawPlayers(); 
+        drawIndicators(); 
+        ctx.restore();
         drawMinimap();
     }
     requestAnimationFrame(gameLoop);

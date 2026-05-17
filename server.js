@@ -9,18 +9,15 @@ const PORT = 3000;
 const WORLD_WIDTH = 5000;
 const WORLD_HEIGHT = 5000;
 const MAX_FOOD = 750; 
-const BOTS_PER_LOBBY = 10; 
+const BOTS_PER_LOBBY = 6; 
+const MAX_HUMANS_PER_LOBBY = 15; // Once a room hits 15 real players, a new room opens!
 
 app.use(express.static(__dirname + '/public'));
 
 let players = {};
-let roomFoods = { normal: [], zombie: [] };
+let roomFoods = {}; // Spawns dynamically per room shard
+let activeRooms = {}; // Tracks room meta data (timers, game types)
 
-let zombieTimer = 120;
-let zombieInterval = null;
-let zombieGameInProgress = false;
-
-// REALISTIC GAMER TAG MATRIX BANK
 const botNames = [
     "darkhusky54", "iaintnorobot", "shadow_ninja", "skibidi_slayer", "vortex_glider",
     "alpha_omega", "toxic_bubble", "cell_maximus", "glitch_phantom", "nova_striker",
@@ -34,7 +31,18 @@ function getRandomColor() {
     return colors[Math.floor(Math.random() * colors.length)];
 }
 
+// Dynamically initializes food array for a brand new room shard
+function initRoomAssets(roomName) {
+    if (!roomFoods[roomName]) {
+        roomFoods[roomName] = [];
+        for (let i = 0; i < MAX_FOOD; i++) {
+            spawnFood(roomName);
+        }
+    }
+}
+
 function spawnFood(room) {
+    if (!roomFoods[room]) roomFoods[room] = [];
     roomFoods[room].push({
         id: Math.random().toString(36).substring(2, 9),
         x: Math.random() * WORLD_WIDTH,
@@ -44,9 +52,31 @@ function spawnFood(room) {
     });
 }
 
-for (let i = 0; i < MAX_FOOD; i++) {
-    spawnFood("normal");
-    spawnFood("zombie");
+// SMART SHARD FINDER FUNCTION
+function getAvailableRoom(baseMode) {
+    let shardIndex = 0;
+    while (true) {
+        let roomName = `${baseMode}_shard_${shardIndex}`;
+        
+        // Count how many human players are currently assigned to this specific room shard
+        let humanCount = Object.values(players).filter(p => !p.isBot && p.room === roomName).length;
+        
+        if (humanCount < MAX_HUMANS_PER_LOBBY) {
+            // Initialize room metadata if it's a completely new shard
+            if (!activeRooms[roomName]) {
+                activeRooms[roomName] = {
+                    name: roomName,
+                    mode: baseMode,
+                    zombieTimer: 120,
+                    zombieInterval: null,
+                    zombieGameInProgress: false
+                };
+                initRoomAssets(roomName);
+            }
+            return roomName;
+        }
+        shardIndex++; // Check the next room index if this one is packed
+    }
 }
 
 function maintainBotCount(room) {
@@ -64,8 +94,8 @@ function maintainBotCount(room) {
                 name: Math.random() > 0.4 ? `${nameSeed}${suffix}` : nameSeed,
                 color: getRandomColor(),
                 baseColor: getRandomColor(),
-                x: Math.random() * (WORLD_WIDTH - 200) + 100,
-                y: Math.random() * (WORLD_HEIGHT - 200) + 100,
+                x: Math.random() * (WORLD_WIDTH - 400) + 200,
+                y: Math.random() * (WORLD_HEIGHT - 400) + 200,
                 radius: Math.random() * 10 + 20, 
                 mouseX: Math.random() * 200 - 100, 
                 mouseY: Math.random() * 200 - 100,
@@ -78,15 +108,15 @@ function maintainBotCount(room) {
     }
 }
 
-maintainBotCount("normal");
-maintainBotCount("zombie");
+function startZombieMatch(roomName) {
+    let room = activeRooms[roomName];
+    if (!room || room.zombieGameInProgress) return;
 
-function startZombieMatch() {
-    let zombieRoomPlayers = Object.values(players).filter(p => p.room === "zombie");
+    let zombieRoomPlayers = Object.values(players).filter(p => p.room === roomName);
     if (zombieRoomPlayers.length === 0) return;
 
-    zombieGameInProgress = true;
-    zombieTimer = 120;
+    room.zombieGameInProgress = true;
+    room.zombieTimer = 120;
 
     zombieRoomPlayers.forEach(p => {
         p.isZombie = false;
@@ -101,32 +131,35 @@ function startZombieMatch() {
         shuffled[i].color = "#2ecc71";
     }
 
-    io.to("zombie").emit('zombieModeStarted', { duration: zombieTimer });
+    io.to(roomName).emit('zombieModeStarted', { duration: room.zombieTimer });
 
-    if (zombieInterval) clearInterval(zombieInterval);
-    zombieInterval = setInterval(() => {
-        zombieTimer--;
+    if (room.zombieInterval) clearInterval(room.zombieInterval);
+    room.zombieInterval = setInterval(() => {
+        room.zombieTimer--;
         
-        let activeZombiePlayers = Object.values(players).filter(p => p.room === "zombie");
+        let activeZombiePlayers = Object.values(players).filter(p => p.room === roomName);
         let zombieAlive = activeZombiePlayers.some(p => p.isZombie);
         let humanAlive = activeZombiePlayers.some(p => !p.isZombie && !p.isBot); 
 
-        if (zombieTimer <= 0 || !zombieAlive || (!humanAlive && Object.values(players).filter(p => !p.isBot && p.room === "zombie").length > 0)) {
-            endZombieMatch();
+        if (room.zombieTimer <= 0 || !zombieAlive || !humanAlive || activeZombiePlayers.length === 0) {
+            endZombieMatch(roomName);
         } else {
-            io.to("zombie").emit('timerUpdate', zombieTimer);
+            io.to(roomName).emit('timerUpdate', room.zombieTimer);
         }
     }, 1000);
 }
 
-function endZombieMatch() {
-    clearInterval(zombieInterval);
-    zombieGameInProgress = false;
+function endZombieMatch(roomName) {
+    let room = activeRooms[roomName];
+    if (!room) return;
 
-    let activeZombiePlayers = Object.values(players).filter(p => p.room === "zombie");
+    clearInterval(room.zombieInterval);
+    room.zombieGameInProgress = false;
+
+    let activeZombiePlayers = Object.values(players).filter(p => p.room === roomName);
     let humanAlive = activeZombiePlayers.some(p => !p.isZombie && !p.isBot);
 
-    if (zombieTimer <= 0 && humanAlive) {
+    if (room.zombieTimer <= 0 && humanAlive) {
         activeZombiePlayers.forEach(p => {
             if (!p.isZombie && !p.isBot) {
                 io.to(p.id).emit('earnCoins', 20);
@@ -134,7 +167,7 @@ function endZombieMatch() {
         });
     }
 
-    io.to("zombie").emit('zombieModeEnded');
+    io.to(roomName).emit('zombieModeEnded');
     
     activeZombiePlayers.forEach(p => {
         p.isZombie = false;
@@ -145,34 +178,36 @@ function endZombieMatch() {
 
 io.on('connection', (socket) => {
     socket.on('joinGame', (data) => {
-        let selectedRoom = data.room || "normal";
-        socket.join(selectedRoom);
+        let baseMode = data.room || "normal"; 
+        let dynamicRoom = getAvailableRoom(baseMode); // Find an open shard room assignment!
+
+        socket.join(dynamicRoom);
 
         players[socket.id] = {
             id: socket.id,
-            name: data.name.trim().substring(0, 12) || "Unnamed Cell",
+            name: (data.name && data.name.trim().substring(0, 12)) || "Guest Cell",
             color: data.color || "#3498db",
             baseColor: data.color || "#3498db", 
-            x: Math.random() * (WORLD_WIDTH - 200) + 100,
-            y: Math.random() * (WORLD_HEIGHT - 200) + 100,
+            x: Math.random() * (WORLD_WIDTH - 400) + 200,
+            y: Math.random() * (WORLD_HEIGHT - 400) + 200,
             radius: 24,
             mouseX: 0,
             mouseY: 0,
             isZombie: false,
-            room: selectedRoom,
+            room: dynamicRoom,
             isBot: false
         };
         
-        socket.emit('init', { worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, currentMode: selectedRoom });
+        socket.emit('init', { worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, currentMode: baseMode });
 
-        if (selectedRoom === "zombie" && !zombieGameInProgress) {
-            startZombieMatch();
+        if (baseMode === "zombie" && !activeRooms[dynamicRoom].zombieGameInProgress) {
+            startZombieMatch(dynamicRoom);
         }
     });
 
     socket.on('sendChat', (msg) => {
         let p = players[socket.id];
-        if (p && !p.isBot && msg.trim().length > 0) {
+        if (p && !p.isBot && msg && msg.trim().length > 0) {
             let cleanMsg = msg.substring(0, 60).replace(/</g, "&lt;");
             io.to(p.room).emit('receiveChat', { name: p.name, text: cleanMsg, isZombie: p.isZombie });
         }
@@ -183,27 +218,52 @@ io.on('connection', (socket) => {
             let room = players[socket.id].room;
             socket.leave(room);
             delete players[socket.id];
+            cleanUpEmptyRoom(room);
         }
     });
 
     socket.on('updateInput', (data) => {
-        if (players[socket.id] && !players[socket.id].isBot) {
-            players[socket.id].mouseX = data.mouseX;
-            players[socket.id].mouseY = data.mouseY;
+        if (players[socket.id] && !players[socket.id].isBot && data) {
+            players[socket.id].mouseX = data.mouseX || 0;
+            players[socket.id].mouseY = data.mouseY || 0;
         }
     });
 
     socket.on('disconnect', () => {
-        delete players[socket.id];
+        if (players[socket.id]) {
+            let room = players[socket.id].room;
+            delete players[socket.id];
+            cleanUpEmptyRoom(room);
+        }
     });
 });
 
-// Central Engine Physics Tick Loop (60Hz)
+// Cleans up memory arrays when a dynamic room shard becomes totally empty
+function cleanUpEmptyRoom(roomName) {
+    let realPlayersInRoom = Object.values(players).filter(p => p.room === roomName && !p.isBot).length;
+    if (realPlayersInRoom === 0 && activeRooms[roomName]) {
+        if (activeRooms[roomName].zombieInterval) clearInterval(activeRooms[roomName].zombieInterval);
+        
+        // Wipe all bots belonging to this empty ghost shard room
+        Object.keys(players).forEach(id => {
+            if (players[id].room === roomName && players[id].isBot) {
+                delete players[id];
+            }
+        });
+
+        delete roomFoods[roomName];
+        delete activeRooms[roomName];
+    }
+}
+
+// Global Physics and Broadcaster Tick Loop
 setInterval(() => {
     let deadPlayers = [];
 
-    maintainBotCount("normal");
-    maintainBotCount("zombie");
+    // Run AI maintain updates for all currently active dynamic shards
+    Object.keys(activeRooms).forEach(roomName => {
+        maintainBotCount(roomName);
+    });
 
     Object.keys(players).forEach(id => {
         let p = players[id];
@@ -211,16 +271,15 @@ setInterval(() => {
         
         let currentRoom = p.room;
 
-        // BOT TRAJECTORY DECISION ALGORITHMS
         if (p.isBot) {
             p.changeDirTimer--;
             if (p.changeDirTimer <= 0) {
                 p.mouseX = Math.random() * 400 - 200;
                 p.mouseY = Math.random() * 400 - 200;
-                p.changeDirTimer = Math.random() * 120 + 60;
+                p.changeDirTimer = Math.random() * 90 + 45;
             }
             
-            if (Math.random() < 0.0005) {
+            if (Math.random() < 0.001) {
                 const phrases = ["gg", "close one!", "wow lag", "team?", "bruh", "nice skin", "out of my way"];
                 let randPhrase = phrases[Math.floor(Math.random() * phrases.length)];
                 io.to(p.room).emit('receiveChat', { name: p.name, text: randPhrase, isZombie: p.isZombie });
@@ -242,7 +301,7 @@ setInterval(() => {
         p.x = Math.max(p.radius, Math.min(WORLD_WIDTH - p.radius, p.x));
         p.y = Math.max(p.radius, Math.min(WORLD_HEIGHT - p.radius, p.y));
 
-        // Food Processing Loop (With AI Reset Trigger at 300)
+        // Food Processing Loop per specific shard array
         let foods = roomFoods[currentRoom] || [];
         for (let i = foods.length - 1; i >= 0; i--) {
             if (Math.hypot(p.x - foods[i].x, p.y - foods[i].y) < p.radius) {
@@ -251,11 +310,10 @@ setInterval(() => {
                 let foodArea = Math.PI * foods[i].radius * foods[i].radius;
                 let nextRadius = Math.sqrt((playerArea + foodArea) / Math.PI);
 
-                // Check if the cell is a bot and if eating this food pushes it over 300 size
                 if (p.isBot && nextRadius >= 300) {
-                    p.radius = 24; // Pop back to basic size
-                    p.x = Math.random() * (WORLD_WIDTH - 200) + 100; // Warp location
-                    p.y = Math.random() * (WORLD_HEIGHT - 200) + 100;
+                    p.radius = 24; 
+                    p.x = Math.random() * (WORLD_WIDTH - 400) + 200; 
+                    p.y = Math.random() * (WORLD_HEIGHT - 400) + 200;
                     
                     foods.splice(i, 1);
                     spawnFood(currentRoom);
@@ -267,7 +325,7 @@ setInterval(() => {
             }
         }
 
-        // Cell Contact Collision Matrix
+        // Cell Collision Checks (Only looks at players inside the exact same dynamic shard!)
         Object.keys(players).forEach(otherId => {
             if (id === otherId || deadPlayers.includes(otherId) || deadPlayers.includes(id)) return;
             
@@ -275,8 +333,9 @@ setInterval(() => {
             if (!other || other.room !== currentRoom) return; 
 
             let pDist = Math.hypot(p.x - other.x, p.y - other.y);
+            let roomMeta = activeRooms[currentRoom];
 
-            if (currentRoom === "zombie") {
+            if (roomMeta && roomMeta.mode === "zombie") {
                 if (pDist < (p.radius + other.radius)) {
                     if (p.isZombie && !other.isZombie) {
                         other.isZombie = true;
@@ -290,11 +349,10 @@ setInterval(() => {
                     let targetArea = Math.PI * other.radius * other.radius;
                     let nextRadius = Math.sqrt((playerArea + targetArea) / Math.PI);
 
-                    // Check if a human eating a bot (or vice-versa) creates a size over 300
                     if (p.isBot && nextRadius >= 300) {
                         p.radius = 24;
-                        p.x = Math.random() * (WORLD_WIDTH - 200) + 100;
-                        p.y = Math.random() * (WORLD_HEIGHT - 200) + 100;
+                        p.x = Math.random() * (WORLD_WIDTH - 400) + 200;
+                        p.y = Math.random() * (WORLD_HEIGHT - 400) + 200;
                     } else {
                         p.radius = nextRadius;
                     }
@@ -315,20 +373,23 @@ setInterval(() => {
 
     deadPlayers.forEach(id => { delete players[id]; });
 
-    ["normal", "zombie"].forEach(roomName => {
+    // Send isolated, smooth game updates to every single specific dynamic room shard independently
+    Object.keys(activeRooms).forEach(roomName => {
+        let roomMeta = activeRooms[roomName];
         let roomPlayers = {};
+        
         Object.keys(players).forEach(id => {
             if (players[id].room === roomName) roomPlayers[id] = players[id];
         });
 
         io.to(roomName).emit('gameUpdate', { 
             players: roomPlayers, 
-            foods: roomFoods[roomName], 
-            currentMode: roomName, 
-            zombieTimer: zombieTimer 
+            foods: roomFoods[roomName] || [], 
+            currentMode: roomMeta.mode, 
+            zombieTimer: roomMeta.zombieTimer 
         });
     });
 
-}, 1000 / 60);
+}, 1000 / 30);
 
-http.listen(PORT, '0.0.0.0', () => console.log(`Game Server actively running on port ${PORT}`));
+http.listen(PORT, '0.0.0.0', () => console.log(`Auto-Sharding Sharded Game Server running on port ${PORT}`));
